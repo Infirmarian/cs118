@@ -47,6 +47,7 @@ int main(int argc, char** argv){
         HttpObject* h = new HttpObject(instream);
         string data = h->get_data();
         cout<<data<<endl;
+        cout<<"Sought resource: "<<h->get_url()<<endl;
     }
 
 }

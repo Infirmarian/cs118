@@ -12,11 +12,13 @@ using namespace std;
 
 HttpObject::HttpObject(int stream_fd){
     char b;
-    while(read(stream_fd, &b, 1)){
-        if(b == '\n' && m_data[m_data.size()-1] == '\n')
-            break;
-        m_data.push_back(b);
-    }
+    string protocol;
+    while(read(stream_fd, &b, 1) && b != '\n')
+        protocol.push_back(b);
+    int start = protocol.find(" ");
+    int end = protocol.find(" HTTP");
+    m_url = m_data.substr(m_data.find(" "), m_data.find(" HTTP"));
+
 }
 
 
