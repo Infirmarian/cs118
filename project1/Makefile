@@ -2,8 +2,8 @@
 CC=g++
 FLAGS=-Wall -Wextra
 
-build: utils.o server.o
-	$(CC) $(FLAGS) -o server server.o utils.o
+build: utils.o server.o HttpObject.o
+	$(CC) $(FLAGS) -o server server.o utils.o HttpObject.o
 
 server.o: server.cpp
 	$(CC) $(FLAGS) -c server.cpp
@@ -11,7 +11,11 @@ server.o: server.cpp
 utils.o: utils.cpp
 	$(CC) $(FLAGS) -c utils.cpp
 
+HttpObject.o: HttpObject.cpp
+	$(CC) $(FLAGS) -c HttpObject.cpp
+
 clean:
 	$(RM) server.o
 	$(RM) utils.o
 	$(RM) server
+	$(RM) HttpObject.o
