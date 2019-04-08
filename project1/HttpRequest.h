@@ -1,13 +1,13 @@
 #include <vector>
 #include <string>
 
-#ifndef HTTPOBJECT_H
-#define HTTPOBJECT_H
-class HttpObject{
+#ifndef HTTPREQUEST_H
+#define HTTPREQUEST_H
+class HttpRequest{
 public:
-    HttpObject(int stream_fd);
-    HttpObject(int status, int out_fd);
-    ~HttpObject();
+    HttpRequest(int stream_fd);
+    HttpRequest(int status, int out_fd);
+    ~HttpRequest();
     std::string get_data();
     std::string get_url();
 private:

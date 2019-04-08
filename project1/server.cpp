@@ -13,7 +13,7 @@
 
 
 #include "utils.h"
-#include "HttpObject.h"
+#include "HttpRequest.h"
 using namespace std;
 
 int main(int argc, char** argv){
@@ -44,9 +44,7 @@ int main(int argc, char** argv){
     socklen_t size = sizeof(struct sockaddr_un);
     while(1){
         int instream = accept(sock, (struct sockaddr *) &incoming, &size);
-        HttpObject* h = new HttpObject(instream);
-        string data = h->get_data();
-        cout<<data<<endl;
+        HttpRequest* h = new HttpRequest(instream);
         cout<<"Sought resource: "<<h->get_url()<<endl;
     }
 
