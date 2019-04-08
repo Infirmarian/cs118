@@ -9,6 +9,8 @@
 #include <stdlib.h>
 #include <sys/un.h>
 #include <arpa/inet.h>
+#include <vector>
+
 
 #include "utils.h"
 #include "HttpObject.h"
@@ -40,25 +42,11 @@ int main(int argc, char** argv){
     cout<<"Listening on port "<<port<<endl;
     sockaddr_un incoming;
     socklen_t size = sizeof(struct sockaddr_un);
-    char* input_buffer;
-    int buffer_size = 1000;
-    input_buffer = (char*) malloc(sizeof(char)*buffer_size);
-    cout<<"Prepared to listen to incoming connections"<<endl;
     while(1){
-        int pos = 0;
-        int seg_buf_size = 10;
-        char buf[seg_buf_size];
         int instream = accept(sock, (struct sockaddr *) &incoming, &size);
-        while(read(instream, buf, seg_buf_size)){
-            if(pos > buffer_size - seg_buf_size){
-                buffer_size *= 2;
-                input_buffer = (char*) realloc(input_buffer, sizeof(char)*buffer_size);
-            }
-            memcpy(input_buffer+pos, buf, seg_buf_size);
-            pos += seg_buf_size;
-        }
-        cout<<input_buffer<<endl;
-        close(instream);
+        HttpObject* h = new HttpObject(instream);
+        string data = h->get_data();
+        cout<<data<<endl;
     }
 
 }
