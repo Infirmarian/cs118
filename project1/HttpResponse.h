@@ -5,14 +5,15 @@
 #define HTTPRESPONSE_H
 class HttpResponse{
 public:
-    HttpResponse(int status, int out_fd);
+    HttpResponse(int status, int out_fd, int file_fd, std::string content_type);
     ~HttpResponse();
     std::string get_url();
     int flush_and_close();
-    int set_data_from_file(std::string filename);
 private:
     int m_status;
     int m_ostream;
+    int m_ifstream;
+    std::string m_data_type;
     std::string format_header();
 };
 

@@ -9,8 +9,7 @@
 #include <stdlib.h>
 #include <sys/un.h>
 #include <arpa/inet.h>
-#include <vector>
-
+#include <fcntl.h>
 
 #include "utils.h"
 #include "HttpRequest.h"
@@ -47,7 +46,9 @@ int main(int argc, char** argv){
     int instream = accept(sock, (struct sockaddr *) &incoming, &size);
     HttpRequest* h = new HttpRequest(instream);
     cout<<"Sought resource: "<<convert_url_to_file(h->get_url())<<endl;
-    HttpResponse* r = new HttpResponse(200, instream);
+    int deliverable = open(convert_url_to_file(h->get_url()).c_str(), O_RDONLY);
+    string content_type = get_content_type(convert_url_to_file(h->get_url()));
+    HttpResponse* r = new HttpResponse(200, instream, deliverable, content_type);
     write(instream, "HTTP/1.1 200 OK\nConnection: close\nDate: Mon, 08 Apr 2019 15:44:04 GMT\nServer: Apache/2.2.3 (CentOS)\
 Last-Modified: Tue, 09 Aug 2011 15:11:03 GMT\nContent-Length: 17\nContent-Type: text/html\n\n<h1>RESPONSE</h1>", 500);
 

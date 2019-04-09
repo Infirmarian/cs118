@@ -66,11 +66,22 @@ void check_status_strings(){
     assert(get_status_message(600).compare("I'm a teapot") == 0);
 }
 
+void check_filetype_id(){
+    assert(get_content_type("file.html").compare("text/html") == 0);
+    assert(get_content_type("index.htm").compare("text/html") == 0);
+    assert(get_content_type("plain.txt").compare("text/plain") == 0);
+    assert(get_content_type("meme.jpg").compare("image/jpeg") == 0);
+    assert(get_content_type("long.file.name.jpeg").compare("image/jpeg") == 0);
+    assert(get_content_type("embedded/high/quality.gif").compare("image/gif") == 0);
+    assert(get_content_type("WhaTDoYOuMemE.TxT").compare("text/plain") == 0);
+
+}
 int main(){
     check_strip();
     check_split();
     check_conversion();
     check_status_strings();
+    check_filetype_id();
     cout<<"All tests passed"<<endl;
     return 0;
 }

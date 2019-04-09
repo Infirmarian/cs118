@@ -2,7 +2,7 @@
 #include <vector>
 #include <stdio.h>
 #include "utils.h"
-
+#include <iostream>
 using namespace std;
 
 void convert_to_lowercase(std::string& upper){
@@ -70,4 +70,25 @@ std::string get_status_message(int code){
         default:
             return "I'm a teapot";
     }
+}
+
+std::string get_content_type(std::string filename){
+    int dotpos = filename.rfind(".");
+    string extension = filename.substr(dotpos, filename.length() - dotpos);
+    convert_to_lowercase(extension);
+    if(extension.compare(".html") == 0)
+        return "text/html";
+    if(extension.compare(".htm") == 0)
+        return "text/html";
+    if(extension.compare(".txt") == 0)
+        return "text/plain";
+    if(extension.compare(".jpg") == 0)
+        return "image/jpeg";
+    if(extension.compare(".jpeg") == 0)
+        return "image/jpeg";
+    if(extension.compare(".png") == 0)
+        return "image/png";
+    if(extension.compare(".gif") == 0)
+        return "image/gif";
+    return "";
 }
