@@ -39,3 +39,35 @@ std::vector<std::string> split(std::string src, std::string delimiter){
     }
     return v;
 }
+
+std::string convert_url_to_file(std::string url){
+    convert_to_lowercase(url);
+    if(url.length() == 1){
+        return "";
+    }
+    string result = "";
+    for(unsigned long i = 1; i<url.length(); i++){
+        if(url[i] == '%' && i+2 < url.length() && url[i+1] == '2' && url[i+2] == '0'){
+            result.push_back(' ');
+            i += 2;
+            continue;
+        }
+        result.push_back(url[i]);
+    }
+    return result;
+}
+
+std::string get_status_message(int code){
+    switch(code){
+        case 200:
+            return "OK";
+        case 400:
+            return "Bad Request";
+        case 404:
+            return "Not Found";
+        case 500:
+            return "Internal Server Error";
+        default:
+            return "I'm a teapot";
+    }
+}

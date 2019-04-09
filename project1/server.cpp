@@ -14,6 +14,8 @@
 
 #include "utils.h"
 #include "HttpRequest.h"
+#include "HttpResponse.h"
+
 using namespace std;
 
 int main(int argc, char** argv){
@@ -42,10 +44,11 @@ int main(int argc, char** argv){
     cout<<"Listening on port "<<port<<endl;
     sockaddr_un incoming;
     socklen_t size = sizeof(struct sockaddr_un);
-    while(1){
-        int instream = accept(sock, (struct sockaddr *) &incoming, &size);
-        HttpRequest* h = new HttpRequest(instream);
-        cout<<"Sought resource: "<<h->get_url()<<endl;
-    }
+    int instream = accept(sock, (struct sockaddr *) &incoming, &size);
+    HttpRequest* h = new HttpRequest(instream);
+    cout<<"Sought resource: "<<convert_url_to_file(h->get_url())<<endl;
+    HttpResponse* r = new HttpResponse(200, instream);
+    write(instream, "HTTP/1.1 200 OK\nConnection: close\nDate: Mon, 08 Apr 2019 15:44:04 GMT\nServer: Apache/2.2.3 (CentOS)\
+Last-Modified: Tue, 09 Aug 2011 15:11:03 GMT\nContent-Length: 17\nContent-Type: text/html\n\n<h1>RESPONSE</h1>", 500);
 
 }

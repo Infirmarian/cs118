@@ -51,9 +51,26 @@ void check_split(){
     assert(vector_equal(v, g));
 }
 
+void check_conversion(){
+    assert(convert_url_to_file("/").compare("") == 0);
+    assert(convert_url_to_file("/somepath").compare("somepath") == 0);
+    assert(convert_url_to_file("/some/long/path").compare("some/long/path") == 0);
+    assert(convert_url_to_file("/gasp%20a%20space!").compare("gasp a space!") == 0);
+    assert(convert_url_to_file("/index.html").compare("index.html") == 0);
+}
+
+void check_status_strings(){
+    assert(get_status_message(200).compare("OK") == 0);
+    assert(get_status_message(404).compare("Not Found") == 0);
+    assert(get_status_message(500).compare("Internal Server Error") == 0);
+    assert(get_status_message(600).compare("I'm a teapot") == 0);
+}
+
 int main(){
     check_strip();
     check_split();
+    check_conversion();
+    check_status_strings();
     cout<<"All tests passed"<<endl;
     return 0;
 }
