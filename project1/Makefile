@@ -2,8 +2,8 @@
 CC=g++
 FLAGS=-Wall -Wextra
 
-build: utils.o server.o HttpRequest.o HttpResponse.o
-	$(CC) $(FLAGS) -o server server.o utils.o HttpRequest.o HttpResponse.o
+build: utils.o server.o HttpRequest.o HttpResponse.o File.o
+	$(CC) $(FLAGS) -o server server.o utils.o HttpRequest.o HttpResponse.o File.o
 
 check: utils.o tests.o
 	$(CC) $(FLAGS) -o test tests.o utils.o
@@ -11,9 +11,9 @@ check: utils.o tests.o
 
 # Note ID should be an environmental variable
 dist: server.cpp utils.cpp utils.h HttpRequest.cpp HttpRequest.h HttpResponse.cpp HttpResponse.h tests.cpp \
-		README
+		README File.h File.cpp
 	tar -czf $(ID).tar.gz server.cpp utils.cpp utils.h HttpRequest.cpp HttpRequest.h \
-	HttpResponse.cpp HttpResponse.h tests.cpp README
+	HttpResponse.cpp HttpResponse.h tests.cpp README File.h File.cpp
 
 server.o: server.cpp
 	$(CC) $(FLAGS) -c server.cpp
@@ -27,6 +27,9 @@ HttpRequest.o: HttpRequest.cpp
 HttpResponse.o: HttpResponse.cpp
 	$(CC) $(FLAGS) -c HttpResponse.cpp
 
+File.o: File.cpp
+	$(CC) $(FLAGS) -c File.cpp
+
 clean:
 	$(RM) server.o
 	$(RM) utils.o
@@ -34,5 +37,6 @@ clean:
 	$(RM) HttpRequest.o
 	$(RM) HttpResponse.o
 	$(RM) tests.o
+	$(RM) File.o
 	$(RM) test
 	$(RM) $(ID).tar.gz

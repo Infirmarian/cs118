@@ -1,20 +1,19 @@
 #include <vector>
 #include <string>
+#include "File.h"
 
 #ifndef HTTPRESPONSE_H
 #define HTTPRESPONSE_H
 class HttpResponse{
 public:
-    HttpResponse(int status, int out_fd, int file_fd, std::string content_type);
+    HttpResponse(int out_fd, File* file);
     ~HttpResponse();
-    std::string get_url();
-    int flush_and_close();
+    int flush_and_close(bool close_connection);
 private:
     int m_status;
     int m_ostream;
-    int m_ifstream;
-    std::string m_data_type;
-    std::string format_header();
+    File* m_file;
+    std::string format_header(bool close_connection);
 };
 
 #endif

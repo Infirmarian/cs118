@@ -14,6 +14,7 @@
 #include "utils.h"
 #include "HttpRequest.h"
 #include "HttpResponse.h"
+#include "File.h"
 
 using namespace std;
 
@@ -43,13 +44,17 @@ int main(int argc, char** argv){
     cout<<"Listening on port "<<port<<endl;
     sockaddr_un incoming;
     socklen_t size = sizeof(struct sockaddr_un);
-    int instream = accept(sock, (struct sockaddr *) &incoming, &size);
-    HttpRequest* h = new HttpRequest(instream);
-    cout<<"Sought resource: "<<convert_url_to_file(h->get_url())<<endl;
-    int deliverable = open(convert_url_to_file(h->get_url()).c_str(), O_RDONLY);
-    string content_type = get_content_type(convert_url_to_file(h->get_url()));
-    HttpResponse* r = new HttpResponse(200, instream, deliverable, content_type);
-    write(instream, "HTTP/1.1 200 OK\nConnection: close\nDate: Mon, 08 Apr 2019 15:44:04 GMT\nServer: Apache/2.2.3 (CentOS)\
-Last-Modified: Tue, 09 Aug 2011 15:11:03 GMT\nContent-Length: 17\nContent-Type: text/html\n\n<h1>RESPONSE</h1>", 500);
-
+    //TODO: Make this section threaded to allow multiple connections
+    //TODO: figure out why this sometimes seg faults
+    
+    while(1){
+        int instream = accept(sock, (struct sockaddr *) &incoming, &size);
+        HttpRequest* h = new HttpRequest(instream);
+        File* out_file = new File(convert_url_to_file(h->get_url()));
+        
+        HttpResponse* r = new HttpResponse(instream, out_file);
+        r->flush_and_close(true);
+        delete(h);
+        delete(out_file);
+    }
 }
