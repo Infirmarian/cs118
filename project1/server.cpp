@@ -44,15 +44,17 @@ int main(int argc, char** argv){
     cout<<"Listening on port "<<port<<endl;
     sockaddr_un incoming;
     socklen_t size = sizeof(struct sockaddr_un);
+    //TODO: Make this section threaded to allow multiple connections
+    //TODO: figure out why this sometimes seg faults
+    
     while(1){
         int instream = accept(sock, (struct sockaddr *) &incoming, &size);
         HttpRequest* h = new HttpRequest(instream);
         File* out_file = new File(convert_url_to_file(h->get_url()));
         
         HttpResponse* r = new HttpResponse(instream, out_file);
-        r->flush_and_close();
+        r->flush_and_close(true);
         delete(h);
         delete(out_file);
-        delete(r);
     }
 }
