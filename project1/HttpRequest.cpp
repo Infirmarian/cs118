@@ -28,6 +28,9 @@ HttpRequest::HttpRequest(int stream_fd){
     m_data += buffer;
 }
 
+HttpRequest::~HttpRequest(){
+    
+}
 
 
 std::string HttpRequest::get_data(){
