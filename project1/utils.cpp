@@ -1,14 +1,42 @@
 #include <string>
 #include <vector>
+#include <unordered_map>
 #include <stdio.h>
 #include "utils.h"
 #include <iostream>
+#include <dirent.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+
 using namespace std;
 
 void convert_to_lowercase(std::string& upper){
     for(unsigned int i = 0; i<upper.length(); i++){
         upper[i] = tolower(upper[i]);
     }
+}
+
+std::unordered_map<std::string, std::string> get_filemap(){
+    unordered_map<string, string> map;
+    DIR* dirp = opendir(".");
+    struct dirent * dp;
+    struct stat statbuf;
+    while ((dp = readdir(dirp))) {
+        
+        // check filetype. Only add if not a directory
+        stat(dp->d_name, &statbuf);
+        if(!S_ISREG(statbuf.st_mode))
+            continue;
+
+        string lower = dp->d_name;
+        string filename = dp->d_name;
+        convert_to_lowercase(lower);
+        if(map.find(lower) == map.end()){
+            map.insert(pair<string, string>(lower, filename));
+        }
+    }
+    closedir(dirp);
+    return map;
 }
 
 std::string strip(std::string src, std::string delimiter){
@@ -74,6 +102,9 @@ std::string get_status_message(int code){
 
 std::string get_content_type(std::string filename){
     int dotpos = filename.rfind(".");
+    if(dotpos == -1){
+        return "application/octet-stream";
+    }
     string extension = filename.substr(dotpos, filename.length() - dotpos);
     convert_to_lowercase(extension);
     if(extension.compare(".html") == 0)
@@ -90,5 +121,5 @@ std::string get_content_type(std::string filename){
         return "image/png";
     if(extension.compare(".gif") == 0)
         return "image/gif";
-    return "";
+    return "application/octet-stream";
 }

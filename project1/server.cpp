@@ -10,6 +10,8 @@
 #include <sys/un.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
+#include <unordered_map>
+#include <signal.h>
 
 #include "utils.h"
 #include "HttpRequest.h"
@@ -17,17 +19,31 @@
 #include "File.h"
 
 using namespace std;
+static int sock;
+
+void close_socket(int sig){
+    close(sock);
+    _exit(sig);
+}
 
 int main(int argc, char** argv){
     if(argc != 3){
-        cerr<<"Incorrect number of arguments. Expected 3, got "<<argc<<endl<<flush;
+        cerr<<"Incorrect number of arguments. Expected 3, got "<<argc<<endl;
+        cerr<<"Correct usage: ./server [address] [port]"<<endl;
         exit(1);
+    }
+
+    if(signal(SIGINT, close_socket) == SIG_ERR){
+        cerr<<"Unable to set signal handler to properly close socket: "<<strerror(errno)<<endl;
     }
 
     string host = argv[1];
     int port = atoi(argv[2]);
 
-    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    // Get the mapping of all files in the current directory
+    unordered_map<string, string> filemap = get_filemap();
+
+    sock = socket(AF_INET, SOCK_STREAM, 0);
     if(sock == -1){
         cerr<<"Unable to open a socket: "<<strerror(errno)<<endl;
         exit(2);
@@ -36,8 +52,12 @@ int main(int argc, char** argv){
     address.sin_addr.s_addr = inet_addr(host.c_str());
     address.sin_family = AF_INET;
     address.sin_port = htons(port);
-    bind(sock, (const sockaddr* ) &address, sizeof(address));
-    if(listen(sock, 5)){
+
+    if(bind(sock, (const sockaddr* ) &address, sizeof(address)) == -1){
+        cerr << "Unable to bind address to socket: "<<strerror(errno)<<endl;
+        exit(2);
+    }
+    if(listen(sock, 10)){
         cerr<<"Unable to listen on port "<<port<<": "<<strerror(errno)<<endl;
         exit(2);
     }
@@ -46,14 +66,23 @@ int main(int argc, char** argv){
     socklen_t size = sizeof(struct sockaddr_un);
     //TODO: Make this section threaded to allow multiple connections
     //TODO: figure out why this sometimes seg faults
-    
+    unordered_map<string, string>::iterator it;
     while(1){
         int instream = accept(sock, (struct sockaddr *) &incoming, &size);
         HttpRequest* h = new HttpRequest(instream);
-        File* out_file = new File(convert_url_to_file(h->get_url()));
-        
-        HttpResponse* r = new HttpResponse(instream, out_file);
-        r->flush_and_close(true);
+
+        it = filemap.find(convert_url_to_file(h->get_url()));
+        string filename;
+        bool should404 = false;
+        if(it == filemap.end()){
+            filename = "404.html";
+            should404 = true;
+        }else{
+            filename = it->second;
+        }
+        File* out_file = new File(filename);
+        HttpResponse* r = new HttpResponse(instream, out_file, should404 ? 404 : 200);
+        r->flush_and_close();
         delete(h);
         delete(out_file);
     }
