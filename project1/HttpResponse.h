@@ -7,7 +7,6 @@
 class HttpResponse{
 public:
     HttpResponse(int out_fd, File* file);
-    HttpResponse(int out_fd, File* file, int status);
     ~HttpResponse();
     int flush_and_close();
 private:

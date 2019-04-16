@@ -15,11 +15,7 @@ HttpResponse::HttpResponse(int out_fd, File* file){
     m_file = file;
     m_status = m_file->file_exists() ? 200 : 404;
 }
-HttpResponse::HttpResponse(int out_fd, File* file, int status){
-    m_ostream = out_fd;
-    m_file = file;
-    m_status = status;
-}
+
 HttpResponse::~HttpResponse(){
     
 }

@@ -72,16 +72,13 @@ int main(int argc, char** argv){
         HttpRequest* h = new HttpRequest(instream);
 
         it = filemap.find(convert_url_to_file(h->get_url()));
-        string filename;
-        bool should404 = false;
-        if(it == filemap.end()){
-            filename = "404.html";
-            should404 = true;
-        }else{
+        string filename = "";
+        if(it != filemap.end())
             filename = it->second;
-        }
+
         File* out_file = new File(filename);
-        HttpResponse* r = new HttpResponse(instream, out_file, should404 ? 404 : 200);
+        HttpResponse* r = new HttpResponse(instream, out_file);
+        
         r->flush_and_close();
         delete(h);
         delete(out_file);
