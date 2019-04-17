@@ -4,23 +4,26 @@
 #include <unistd.h>
 #include <iostream>
 #include <strstream>
-
-// Defining protocols for HTTP
-#define GET 0
-#define POST 1
-#define UNKNOWN 2
+#include <stdio.h>
 
 using namespace std;
 
 HttpRequest::HttpRequest(int stream_fd){
     strstream ss;
-    char buf[5];
-    buf[4] = 0;
+    char inchar = 0;
+    FILE* fp = fdopen(stream_fd, "r"); // get filestream
+    char wrap_buffer[4] = {0,0,0,0};
+    int counter = 0;
+    inchar = getc(fp);
     // First line, eg GET / HTTP/1.1
-    while(read(stream_fd, buf, 4)){
-        ss << buf;
-        if(buf[0] == '\r' && buf[1] == '\n' && buf[2] == '\r' && buf[3] == '\n')
+    while(inchar != EOF){
+        ss << inchar;
+        if(inchar == '\n' && wrap_buffer[(counter-1)%4] == '\r' && wrap_buffer[(counter-2)%4] == '\n'
+                && wrap_buffer[(counter-3)%4] == '\r')
             break;
+        wrap_buffer[counter%4] = inchar;
+        counter ++;
+        inchar = getc(fp);
     }
     vector<string> request_line = split(ss.str(), " ");
     m_url = request_line[1];
