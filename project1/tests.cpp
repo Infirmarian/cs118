@@ -3,7 +3,7 @@
 #include <vector>
 #include <string>
 #include <cassert>
-
+#include <unordered_map>
 
 #include "utils.h"
 using namespace std;
@@ -76,12 +76,21 @@ void check_filetype_id(){
     assert(get_content_type("WhaTDoYOuMemE.TxT").compare("text/plain") == 0);
 
 }
+
+void check_filemap_acquisition(){
+    unordered_map<string, string> s = get_filemap();
+    assert(s.size() > 0);
+    assert(s.find("tests.cpp") != s.end());
+    assert(s.find("utils.cpp") != s.end());
+}
+
 int main(){
     check_strip();
     check_split();
     check_conversion();
     check_status_strings();
     check_filetype_id();
+    check_filemap_acquisition();
     cout<<"All tests passed"<<endl;
     return 0;
 }

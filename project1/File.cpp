@@ -7,14 +7,16 @@ using namespace std;
 File::File(std::string filename){
     m_filestream.open(filename, ios::binary | ios::ate);
     m_filename = filename;
-    if (m_filestream.fail()) {
+    m_file_exists = true;
+    if (m_filestream.fail() || filename == "") {
         m_file_exists = false;
-        m_file_size = 0;
-    }else{
-        m_file_exists = true;
-        m_file_size = m_filestream.tellg();
-        m_filestream.seekg(0);
+        m_filestream.open("404.html", ios::binary | ios::ate);
+        m_filename = "404.html";
+        //TODO: Create 404 file if it doesn't exist?
     }
+
+    m_file_size = m_filestream.tellg();
+    m_filestream.seekg(0);
 }
 File::~File(){
     m_filestream.close();
