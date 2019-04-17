@@ -24,12 +24,14 @@ int HttpResponse::flush_and_close(){
     string header = format_header();
     cout<<header<<endl;
     write(m_ostream, header.c_str(), header.size());
-    char *b = new char[512];
-    while(m_file->get_file_stream()->read(b, 512)){
-        write(m_ostream, b, 512);
+    FILE* fp = fdopen(m_ostream, "w");
+    ifstream* infile = m_file->get_file_stream();
+    char c;
+    while (infile->get(c)){
+        putc(c, fp);
     }
-    close(m_ostream);
-    delete[] b;
+    fflush(fp);
+    fclose(fp);
     return 0;
 }
 std::string HttpResponse::format_header(){

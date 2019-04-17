@@ -1,6 +1,6 @@
 
 CC=g++
-FLAGS=-Wall -Wextra
+FLAGS=-Wall -Wextra -g
 
 build: utils.o server.o HttpRequest.o HttpResponse.o File.o
 	$(CC) $(FLAGS) -o server server.o utils.o HttpRequest.o HttpResponse.o File.o
