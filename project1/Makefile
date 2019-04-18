@@ -1,6 +1,6 @@
 
 CC=g++
-FLAGS=-Wall -Wextra -g
+FLAGS=-Wall -Wextra -g -std=c++11
 
 build: utils.o server.o HttpRequest.o HttpResponse.o File.o
 	$(CC) $(FLAGS) -o server server.o utils.o HttpRequest.o HttpResponse.o File.o
@@ -30,6 +30,8 @@ HttpResponse.o: HttpResponse.cpp
 File.o: File.cpp
 	$(CC) $(FLAGS) -c File.cpp
 
+junk: junk.cpp
+	$(CC) $(FLAGS) junk.cpp -o junk
 clean:
 	$(RM) server.o
 	$(RM) utils.o
@@ -39,4 +41,5 @@ clean:
 	$(RM) tests.o
 	$(RM) File.o
 	$(RM) test
+	$(RM) junk
 	$(RM) $(ID).tar.gz

@@ -3,6 +3,7 @@
 
 #include <string>
 #include <unordered_map>
+#include <vector>
 void convert_to_lowercase(std::string& upper);
 std::unordered_map<std::string, std::string> get_filemap();
 std::vector<std::string> split(std::string src, std::string delimiter);

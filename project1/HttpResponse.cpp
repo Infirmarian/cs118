@@ -22,7 +22,7 @@ HttpResponse::~HttpResponse(){
 
 int HttpResponse::flush_and_close(){
     string header = format_header();
-    cout<<header<<endl;
+    //cout<<header<<endl;
     write(m_ostream, header.c_str(), header.size());
     FILE* fp = fdopen(m_ostream, "w");
     ifstream* infile = m_file->get_file_stream();
