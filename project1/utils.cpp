@@ -122,5 +122,9 @@ std::string get_content_type(std::string filename){
         return "image/gif";
     if(extension.compare(".cpp") == 0)
         return "text/plain";
+    if(extension.compare(".pdf") == 0)
+        return "application/pdf";
+    if(extension.compare(".ico") == 0)
+        return "image/x-icon";
     return "application/octet-stream";
 }

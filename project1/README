@@ -1,1 +1,42 @@
-Names: Robert Geil
+Names: Robert Geil, Levi Weible
+
+Project Overview:
+    This project builds an runs a small C++ server on a local host, delivering
+    requested files over a TCP connection
+
+Included files:
+    - server.cpp
+        C++ source file containing the main method to run the server, 
+        handling and serving incoming requests
+    - HttpRequest.cpp
+        C++ source file handling an incoming connection
+    - HttpResponse.cpp
+        C++ source file handling the sending of requested headers and files
+    - File.cpp
+        A C++ abstraction for a file class with useful utilities like length, existance, etc
+    - utils.cpp
+        A C++ source file containing useful and generic utilities
+    - tests.cpp
+        A file containing some basic tests
+    - junk.cpp
+        A non-project related file to generate a large garbage file, useful for testing
+    - utils.h, HttpRequest.h, HttpResponse.h, File.h
+        Header files with declarations of functions in the corresponding .cpp file
+    - Makefile
+        Makefile with targets like 'build', 'dist', 'clean' to automate compiling
+    - index.html
+        Default HTML document that is retrieved when visiting the server without a path
+    - 404.html
+        Error page specifying a file not found on the server
+
+Instructions:
+    To build, simply run the command 'make' which will build an executable `server`.
+    With the executable, there are 2 command line arguments that must be specified,
+    address and port number. Example usage is: ./server 127.0.0.1 7071
+    The server will then run continually serving requests until an interrupt arrives,
+    such as the user interrupt with ^C
+
+Return Codes:
+    0: Successful completion (this never happens)
+    1: Invalid command line argument
+    2: Failed system call (eg failed to bind to port)

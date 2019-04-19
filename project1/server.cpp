@@ -33,11 +33,11 @@ int main(int argc, char** argv){
         exit(1);
     }
 
-    if(signal(SIGINT, SIG_IGN) == SIG_ERR){
+    if(signal(SIGINT, close_socket) == SIG_ERR){
         cerr<<"Unable to set signal handler to properly close socket: "<<strerror(errno)<<endl;
     }
 
-    if(signal(SIGPIPE, close_socket) == SIG_ERR){
+    if(signal(SIGPIPE, SIG_IGN) == SIG_ERR){
         cerr<<"Unable to set signal handler to ignore closed pipes: "<<strerror(errno)<<endl;
     }
 
