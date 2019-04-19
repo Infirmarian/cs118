@@ -3,6 +3,9 @@
 #include <fstream>
 #include <unistd.h>
 #include <iostream>
+#include <ctime>
+#include <chrono>
+#include <iomanip>
 
 
 #include "utils.h"
@@ -36,11 +39,14 @@ int HttpResponse::flush_and_close(){
 }
 std::string HttpResponse::format_header(){
     ostringstream ss;
+    chrono::system_clock::time_point m_now = chrono::system_clock::now();
+    time_t m_time = chrono::system_clock::to_time_t(m_now);
+    struct tm* m_curtime = gmtime(&m_time);
     ss << "HTTP/1.1 "<< m_status << " " << get_status_message(m_status) << endl;
     ss << "Connection: close"<<endl;
-    ss << "Date: Mon, 08 Apr 2019 15:44:04 GMT"<<endl; //TODO: Get the actual date
+    ss << "Date: "<<put_time(m_curtime, "%a, %e %b %G %T GMT")<<endl;
     ss << "Server: Apache/2.2.3 (Ubuntu)" <<endl;
-    ss << "Last-Modified: Tue, 09 Aug 2011 15:11:03 GMT"<<endl; //TODO: Get the file last modify time
+    ss << "Last-Modified: "<<put_time(m_file->get_mod_time(), "%a, %e %b %G %T GMT")<<endl;
     ss << "Content-Length: "<<m_file->file_size()<<endl;
     ss << "Content-Type: "<< get_content_type(m_file->get_filename()) << endl <<endl;
     return ss.str();

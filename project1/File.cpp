@@ -1,5 +1,8 @@
 #include <string>
 #include <fstream>
+#include <ctime>
+#include <sys/stat.h>
+#include <cstring>
 
 #include "File.h"
 using namespace std;
@@ -17,6 +20,8 @@ File::File(std::string filename){
 
     m_file_size = m_filestream.tellg();
     m_filestream.seekg(0);
+
+    stat(m_filename.c_str(), &m_stats);
 }
 File::~File(){
     m_filestream.close();
@@ -32,4 +37,8 @@ int File::file_size(){
 }
 std::string File::get_filename(){
     return m_filename;
+}
+struct tm* File::get_mod_time() {
+    m_modtime = gmtime(&(m_stats.st_mtime));
+    return m_modtime;
 }
