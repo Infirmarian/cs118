@@ -21,12 +21,12 @@ HttpResponse::HttpResponse(int out_fd, File* file){
 }
 
 HttpResponse::~HttpResponse(){
-    //delete(m_stringstream);
+    delete(m_stringstream);
 }
 
 int HttpResponse::flush_and_close(){
     format_header(m_stringstream);
-    cout<<m_stringstream->str()<<endl;
+    //cout<<m_stringstream->str()<<endl;
     write(m_ostream, m_stringstream->str().c_str(), m_stringstream->str().size());
 
 
@@ -38,7 +38,6 @@ int HttpResponse::flush_and_close(){
     }
     fflush(fp);
     fclose(fp);
-    m_stringstream->clear();
     return 0;
 }
 void HttpResponse::format_header(std::ostringstream* ss){

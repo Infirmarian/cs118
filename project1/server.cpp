@@ -33,15 +33,20 @@ int main(int argc, char** argv){
         exit(1);
     }
 
-    if(signal(SIGINT, close_socket) == SIG_ERR){
+    if(signal(SIGINT, SIG_IGN) == SIG_ERR){
         cerr<<"Unable to set signal handler to properly close socket: "<<strerror(errno)<<endl;
+    }
+
+    if(signal(SIGPIPE, close_socket) == SIG_ERR){
+        cerr<<"Unable to set signal handler to ignore closed pipes: "<<strerror(errno)<<endl;
     }
 
     string host = argv[1];
     int port = atoi(argv[2]);
 
     // Get the mapping of all files in the current directory
-    unordered_map<string, string> filemap = get_filemap();
+    unordered_map<string, string> filemap;
+    load_filemap(filemap);
 
     sock = socket(AF_INET, SOCK_STREAM, 0);
     if(sock == -1){
@@ -80,6 +85,7 @@ int main(int argc, char** argv){
         HttpResponse* r = new HttpResponse(instream, out_file);
         
         r->flush_and_close();
+        //close(instream);
 
         delete(h);
         delete(out_file);
