@@ -13,7 +13,7 @@ private:
     int m_status;
     int m_ostream;
     File* m_file;
-    std::string format_header();
+    std::ostringstream* format_header();
 };
 
 #endif
