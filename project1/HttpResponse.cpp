@@ -17,16 +17,17 @@ HttpResponse::HttpResponse(int out_fd, File* file){
     m_ostream = out_fd;
     m_file = file;
     m_status = m_file->file_exists() ? 200 : 404;
+    m_stringstream = new ostringstream();
 }
 
 HttpResponse::~HttpResponse(){
-    
+    //delete(m_stringstream);
 }
 
 int HttpResponse::flush_and_close(){
-    ostringstream* header = format_header();
-    cout<<header->str()<<endl;
-    write(m_ostream, header->str().c_str(), header->str().size());
+    format_header(m_stringstream);
+    cout<<m_stringstream->str()<<endl;
+    write(m_ostream, m_stringstream->str().c_str(), m_stringstream->str().size());
 
 
     FILE* fp = fdopen(m_ostream, "w");
@@ -37,12 +38,10 @@ int HttpResponse::flush_and_close(){
     }
     fflush(fp);
     fclose(fp);
-    header->flush();
-    delete(header);
+    m_stringstream->clear();
     return 0;
 }
-std::ostringstream* HttpResponse::format_header(){
-    ostringstream* ss = new ostringstream();
+void HttpResponse::format_header(std::ostringstream* ss){
     chrono::system_clock::time_point m_now = chrono::system_clock::now();
     time_t m_time = chrono::system_clock::to_time_t(m_now);
     struct tm* m_curtime = gmtime(&m_time);
@@ -53,5 +52,4 @@ std::ostringstream* HttpResponse::format_header(){
     *ss << "Last-Modified: "<<put_time(m_file->get_mod_time(), "%a, %e %b %G %T GMT")<<endl;
     *ss << "Content-Length: "<<m_file->file_size()<<endl;
     *ss << "Content-Type: "<< get_content_type(m_file->get_filename()) << endl <<endl;
-    return ss;
 }

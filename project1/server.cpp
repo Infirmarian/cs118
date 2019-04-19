@@ -1,4 +1,3 @@
-#include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <iostream>
@@ -12,6 +11,7 @@
 #include <fcntl.h>
 #include <unordered_map>
 #include <signal.h>
+#include <sys/socket.h>
 
 #include "utils.h"
 #include "HttpRequest.h"
@@ -53,7 +53,7 @@ int main(int argc, char** argv){
     address.sin_family = AF_INET;
     address.sin_port = htons(port);
 
-    if(bind(sock, (const sockaddr* ) &address, sizeof(address)) == -1){
+    if(::bind(sock, (const sockaddr* ) &address, sizeof(address)) != 0){
         cerr << "Unable to bind address to socket: "<<strerror(errno)<<endl;
         exit(2);
     }
@@ -80,7 +80,9 @@ int main(int argc, char** argv){
         HttpResponse* r = new HttpResponse(instream, out_file);
         
         r->flush_and_close();
+
         delete(h);
         delete(out_file);
+        delete(r);
     }
 }

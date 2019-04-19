@@ -70,6 +70,9 @@ std::vector<std::string> split(std::string src, std::string delimiter){
 
 std::string convert_url_to_file(std::string url){
     convert_to_lowercase(url);
+    if(url.compare("/") == 0){
+        return "index.html";
+    }
     if(url.length() == 1){
         return "";
     }

@@ -12,8 +12,9 @@ public:
 private:
     int m_status;
     int m_ostream;
+    std::ostringstream* m_stringstream;
     File* m_file;
-    std::ostringstream* format_header();
+    void format_header(std::ostringstream* ss);
 };
 
 #endif
