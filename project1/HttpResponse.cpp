@@ -27,6 +27,8 @@ int HttpResponse::flush_and_close(){
     ostringstream* header = format_header();
     cout<<header->str()<<endl;
     write(m_ostream, header->str().c_str(), header->str().size());
+
+
     FILE* fp = fdopen(m_ostream, "w");
     ifstream* infile = m_file->get_file_stream();
     char c;

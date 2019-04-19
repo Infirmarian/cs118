@@ -1,15 +1,14 @@
 #include "HttpRequest.h"
 #include "utils.h"
 #include <vector>
-#include <unistd.h>
 #include <iostream>
-#include <strstream>
+#include <sstream>
 #include <stdio.h>
 
 using namespace std;
 
 HttpRequest::HttpRequest(int stream_fd){
-    strstream ss;
+    stringstream ss;
     char inchar = 0;
     FILE* fp = fdopen(stream_fd, "r"); // get filestream
     char wrap_buffer[4] = {0,0,0,0};
