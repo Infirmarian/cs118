@@ -24,9 +24,9 @@ HttpRequest::HttpRequest(int stream_fd){
         counter ++;
         inchar = getc(fp);
     }
-    vector<string> request_line = split(ss.str(), " ");
+    vector<string> request_line;
+    split(ss.str(), " ", request_line);
     m_url = request_line[1];
-
     cout<<ss.str()<<flush;
 }
 

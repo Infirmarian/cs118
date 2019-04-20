@@ -1,4 +1,3 @@
-#include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <iostream>
@@ -12,6 +11,7 @@
 #include <fcntl.h>
 #include <unordered_map>
 #include <signal.h>
+#include <sys/socket.h>
 
 #include "utils.h"
 #include "HttpRequest.h"
@@ -37,11 +37,16 @@ int main(int argc, char** argv){
         cerr<<"Unable to set signal handler to properly close socket: "<<strerror(errno)<<endl;
     }
 
+    if(signal(SIGPIPE, SIG_IGN) == SIG_ERR){
+        cerr<<"Unable to set signal handler to ignore closed pipes: "<<strerror(errno)<<endl;
+    }
+
     string host = argv[1];
     int port = atoi(argv[2]);
 
     // Get the mapping of all files in the current directory
-    unordered_map<string, string> filemap = get_filemap();
+    unordered_map<string, string> filemap;
+    load_filemap(filemap);
 
     sock = socket(AF_INET, SOCK_STREAM, 0);
     if(sock == -1){
@@ -53,7 +58,7 @@ int main(int argc, char** argv){
     address.sin_family = AF_INET;
     address.sin_port = htons(port);
 
-    if(bind(sock, (const sockaddr* ) &address, sizeof(address)) == -1){
+    if(::bind(sock, (const sockaddr* ) &address, sizeof(address)) != 0){
         cerr << "Unable to bind address to socket: "<<strerror(errno)<<endl;
         exit(2);
     }
@@ -80,7 +85,10 @@ int main(int argc, char** argv){
         HttpResponse* r = new HttpResponse(instream, out_file);
         
         r->flush_and_close();
+        //close(instream);
+
         delete(h);
         delete(out_file);
+        delete(r);
     }
 }
