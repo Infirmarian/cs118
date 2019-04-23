@@ -8,7 +8,7 @@
 using namespace std;
 
 HttpRequest::HttpRequest(int stream_fd){
-    stringstream ss;
+    string* ss = new string();
     char inchar = 0;
     FILE* fp = fdopen(stream_fd, "r"); // get filestream
     char wrap_buffer[4] = {0,0,0,0};
@@ -16,7 +16,7 @@ HttpRequest::HttpRequest(int stream_fd){
     inchar = getc(fp);
     // First line, eg GET / HTTP/1.1
     while(inchar != EOF){
-        ss << inchar;
+        ss->push_back(inchar);
         if(inchar == '\n' && wrap_buffer[(counter-1)%4] == '\r' && wrap_buffer[(counter-2)%4] == '\n'
                 && wrap_buffer[(counter-3)%4] == '\r')
             break;
@@ -24,10 +24,11 @@ HttpRequest::HttpRequest(int stream_fd){
         counter ++;
         inchar = getc(fp);
     }
-    vector<string> request_line;
-    split(ss.str(), " ", request_line);
-    m_url = request_line[1];
-    cout<<ss.str()<<flush;
+    vector<string>* request_line = split(*ss, " ");
+    m_url = (*request_line)[1];
+    cout<<*ss<<flush;
+    delete(request_line);
+    delete(ss);
 }
 
 HttpRequest::~HttpRequest(){
