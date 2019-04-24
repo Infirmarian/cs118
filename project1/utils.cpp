@@ -37,9 +37,9 @@ void load_filemap(std::unordered_map<std::string, std::string>& map){
     closedir(dirp);
 }
 
-std::string strip(std::string src, std::string delimiter){
+void strip(std::string& src, std::string delimiter){
     if(delimiter.length() == 0)
-        return src;
+        return;
     while(src.find(delimiter) == 0){
         src = src.substr(delimiter.length(), src.size() - delimiter.length()+1);
     }
@@ -47,21 +47,22 @@ std::string strip(std::string src, std::string delimiter){
     while(src.rfind(delimiter) != string::npos && src.rfind(delimiter) == src.length() - delimiter.length()){
         src = src.substr(0, src.rfind(delimiter));
     }
-    return src;
 }
-
-void split(std::string src, std::string delimiter, std::vector<std::string>& v){
-    src = strip(src, delimiter);
+// caller is responsible for deleting newly created vector
+std::vector<std::string>* split(std::string src, std::string delimiter){
+    vector<string>* v = new vector<string>();
+    strip(src, delimiter);
     while(1){
-        src = strip(src, delimiter);
+        strip(src, delimiter);
         int p1 = src.find(delimiter);
         if(p1 == -1){
-            v.push_back(src);
+            v->push_back(src);
             break;
         }
-        v.push_back(src.substr(0, p1));
+        v->push_back(src.substr(0, p1));
         src = src.substr(p1+1, src.length() -p1);
     }
+    return v;
 }
 
 std::string convert_url_to_file(std::string url){
