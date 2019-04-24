@@ -11,9 +11,9 @@ check: utils.o tests.cpp
 
 # Note ID should be an environmental variable
 dist: server.cpp utils.cpp utils.h HttpRequest.cpp HttpRequest.h HttpResponse.cpp HttpResponse.h tests.cpp report.pdf \
-		README File.h File.cpp 404.html index.html favicon.ico
+		README File.h File.cpp 404.html index.html favicon.ico Makefile
 	tar -czf $(ID).tar.gz server.cpp utils.cpp utils.h HttpRequest.cpp HttpRequest.h \
-	HttpResponse.cpp HttpResponse.h tests.cpp README File.h File.cpp 404.html index.html favicon.ico report.pdf 
+	HttpResponse.cpp HttpResponse.h tests.cpp README File.h File.cpp 404.html index.html favicon.ico report.pdf Makefile
 
 server.o: server.cpp
 	$(CC) $(FLAGS) -c server.cpp
