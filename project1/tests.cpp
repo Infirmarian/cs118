@@ -7,36 +7,41 @@
 
 #include "utils.h"
 using namespace std;
+
 bool vector_equal(vector<string> one, vector<string> two){
     if(one.size() != two.size())
     return false;
-    for(int i = 0; i< one.size(); i++){
+    for(unsigned int i = 0; i< one.size(); i++){
         if(one[i].compare(two[i]))
             return false;
     }
     return true;
 }
 void print_vector(vector<string> v){
-    for(int i = 0; i < v.size()-1; i++){
+    for(unsigned int i = 0; i < v.size()-1; i++){
         cout<<v[i]<<",";
     }
     cout<<v[v.size()-1]<<endl;
 }
+void check_strip_sub(string s, string d, string e){
+    strip(s,d);
+    assert(s.compare(e)==0);
+}
 
 void check_strip(){
-    assert(strip("", "").compare("") == 0);
-    assert(strip("", " ").compare("") == 0);
-    assert(strip("a", "a").compare("") == 0);
-    assert(strip("aba", "a").compare("b") == 0);
-    assert(strip("whwhlalawh", "wh").compare("lala") == 0);
-    assert(strip("xyyz", "xy").compare("yz") == 0);
-    assert(strip("xyyz", "y").compare("xyyz") == 0);
-    assert(strip("xyyz", "").compare("xyyz") == 0);
-    assert(strip("  what a great day  ", " ").compare("what a great day") == 0);
+    check_strip_sub("","","");
+    check_strip_sub("", " ", "");
+    check_strip_sub("a", "a", "");
+    check_strip_sub("aba", "a", "b");
+    check_strip_sub("whwhlalawh", "wh", "lala");
+    check_strip_sub("xyyz", "xy", "yz");
+    check_strip_sub("xyyz", "y", "xyyz");
+    check_strip_sub("xyyz", "", "xyyz");
+    check_strip_sub("  what a great day  ", " ", "what a great day");
 }
 
 void check_split(){
-    vector<string> v = split("this is a space delimited string", " ");
+    vector<string>* v = split("this is a space delimited string", " ");
     vector<string> g;
     g.push_back("this");
     g.push_back("is");
@@ -44,15 +49,15 @@ void check_split(){
     g.push_back("space");
     g.push_back("delimited");
     g.push_back("string");
-    assert(vector_equal(v, g));
+    assert(vector_equal(*v, g));
     v = split("this is a space delimited string ", " ");
-    assert(vector_equal(v, g));
+    assert(vector_equal(*v, g));
     v = split("    this    is    a  space delimited   string  ", " ");
-    assert(vector_equal(v, g));
+    assert(vector_equal(*v, g));
 }
 
 void check_conversion(){
-    assert(convert_url_to_file("/").compare("") == 0);
+    assert(convert_url_to_file("/").compare("index.html") == 0);
     assert(convert_url_to_file("/somepath").compare("somepath") == 0);
     assert(convert_url_to_file("/some/long/path").compare("some/long/path") == 0);
     assert(convert_url_to_file("/gasp%20a%20space!").compare("gasp a space!") == 0);
@@ -78,7 +83,8 @@ void check_filetype_id(){
 }
 
 void check_filemap_acquisition(){
-    unordered_map<string, string> s = get_filemap();
+    unordered_map<string, string> s;
+    load_filemap(s);
     assert(s.size() > 0);
     assert(s.find("tests.cpp") != s.end());
     assert(s.find("utils.cpp") != s.end());

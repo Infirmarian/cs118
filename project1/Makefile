@@ -5,15 +5,15 @@ FLAGS=-Wall -Wextra -g -std=c++11
 build: utils.o server.o HttpRequest.o HttpResponse.o File.o
 	$(CC) $(FLAGS) -o server server.o utils.o HttpRequest.o HttpResponse.o File.o
 
-check: utils.o tests.o
-	$(CC) $(FLAGS) -o test tests.o utils.o
+check: utils.o tests.cpp
+	$(CC) $(FLAGS) -o test tests.cpp utils.o
 	./test
 
 # Note ID should be an environmental variable
-dist: server.cpp utils.cpp utils.h HttpRequest.cpp HttpRequest.h HttpResponse.cpp HttpResponse.h tests.cpp \
+dist: server.cpp utils.cpp utils.h HttpRequest.cpp HttpRequest.h HttpResponse.cpp HttpResponse.h tests.cpp report.pdf \
 		README File.h File.cpp 404.html index.html favicon.ico
 	tar -czf $(ID).tar.gz server.cpp utils.cpp utils.h HttpRequest.cpp HttpRequest.h \
-	HttpResponse.cpp HttpResponse.h tests.cpp README File.h File.cpp 404.html index.html favicon.ico
+	HttpResponse.cpp HttpResponse.h tests.cpp README File.h File.cpp 404.html index.html favicon.ico report.pdf 
 
 server.o: server.cpp
 	$(CC) $(FLAGS) -c server.cpp
@@ -32,6 +32,7 @@ File.o: File.cpp
 
 junk: junk.cpp
 	$(CC) $(FLAGS) junk.cpp -o junk
+
 clean:
 	$(RM) server.o
 	$(RM) utils.o
