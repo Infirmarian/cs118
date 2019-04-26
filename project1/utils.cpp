@@ -10,12 +10,14 @@
 
 using namespace std;
 
+// Function used to make filenames case insensitive
 void convert_to_lowercase(std::string& upper){
     for(unsigned int i = 0; i<upper.length(); i++){
         upper[i] = tolower(upper[i]);
     }
 }
 
+// Function used to generate file map of directory
 void load_filemap(std::unordered_map<std::string, std::string>& map){
     DIR* dirp = opendir(".");
     struct dirent * dp;
@@ -37,6 +39,7 @@ void load_filemap(std::unordered_map<std::string, std::string>& map){
     closedir(dirp);
 }
 
+// Function used to format strings
 void strip(std::string& src, std::string delimiter){
     if(delimiter.length() == 0)
         return;
@@ -48,7 +51,9 @@ void strip(std::string& src, std::string delimiter){
         src = src.substr(0, src.rfind(delimiter));
     }
 }
-// caller is responsible for deleting newly created vector
+
+// Function used to format strings
+// Caller is responsible for deleting newly created vector
 std::vector<std::string>* split(std::string src, std::string delimiter){
     vector<string>* v = new vector<string>();
     strip(src, delimiter);
@@ -65,6 +70,7 @@ std::vector<std::string>* split(std::string src, std::string delimiter){
     return v;
 }
 
+// Function used to format file URLs
 std::string convert_url_to_file(std::string url){
     convert_to_lowercase(url);
     if(url.compare("/") == 0){
@@ -85,6 +91,7 @@ std::string convert_url_to_file(std::string url){
     return result;
 }
 
+// Functions used to get the status message of the file
 std::string get_status_message(int code){
     switch(code){
         case 200:
@@ -100,6 +107,7 @@ std::string get_status_message(int code){
     }
 }
 
+// Function used to check the file type of the requested file
 std::string get_content_type(std::string filename){
     int dotpos = filename.rfind(".");
     if(dotpos == -1){
