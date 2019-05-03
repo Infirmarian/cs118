@@ -16,11 +16,11 @@ int main(int argc, char** argv){
     }
     ofstream output;
     output.open(argv[1], ios::binary);
-    int filelength = atoi(argv[2]);
+    long long filelength = atoll(argv[2]);
     cout<<"File length: "<<filelength<<endl;
     char byte;
     srand(time(0));
-    for(int i = 0; i<filelength; i++){
+    for(long long i = 0; i<filelength; i++){
         byte = rand()%sizeof(char);
         output << byte;
     }

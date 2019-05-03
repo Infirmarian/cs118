@@ -1,14 +1,22 @@
 CC=g++
 FLAGS=-Wall -Wextra -std=c++11
 
-build: server client
 
-client: client.cpp
-	$(CC) $(FLAGS) client.cpp -o client
+build: client server
 
-server: server.cpp
-	$(CC) $(FLAGS) server.cpp -o server
+client: client.o
+	$(CC) $(FLAGS) client.o -o client
+
+server: server.o
+	$(CC) $(FLAGS) server.o -o server
+
+client.o: client.cpp
+	$(CC) $(FLAGS) -c client.cpp
+server.o: server.cpp
+	$(CC) $(FLAGS) -c server.cpp
 
 clean:
-	$(RM) client
+	$(RM) server.o
+	$(RM) client.o
 	$(RM) server
+	$(RM) client
