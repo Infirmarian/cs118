@@ -7,17 +7,43 @@
 //
 
 #include <iostream>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
 
 int main(int argc, char** argv){
+    // Make sure arguments are valid
     if(argc != 2){
         std::cerr<<"Bad arguments, expected \n./server [PORT]"<<std::endl;
         exit(1);
     }
+    // Set the port number
     int port = atoi(argv[1]);
     if(port <= 0){
         std::cerr<<"Bad port number "<<port<<" provided"<<std::endl;
         exit(1);
     }
-	std::cout<<"Hello client!"<<std::endl;
+	
+    // Create the socket file descriptor
+    int socketfd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (socketfd < 0) {
+        std::cerr<<"Could not create socket"<<std::endl;
+        exit(1);
+    }
 
+    // Set the server and client addresses
+    struct sockaddr_in serveraddr, clientaddr;
+    memset(&serveraddr, 0, sizeof(serveraddr));
+    memset(&clientaddr, 0, sizeof(clientaddr));
+
+    // Set all of the server information
+    serveraddr.sin_family = AF_INET;
+    serveraddr.sin_addr.s_addr = INADDR_ANY;
+    serveraddr.sin_port = htons(port);
+
+    // Attempt to bind the socket
+    if (bind(socketfd, (const struct sockaddr *)&serveraddr, sizeof(serveraddr)) < 0) {
+        std::cerr<<"Could not bind socket"<<std::endl;
+        exit(1);
+    }
 }
