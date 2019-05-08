@@ -12,7 +12,13 @@
 #include <netinet/in.h>
 #include <sys/un.h>
 #include <unistd.h>
+#include <csignal>
 
+
+void signal_exit(int signum){
+	(void) signum;
+	_exit(0);
+}
 
 int main(int argc, char** argv){
     // Make sure arguments are valid
@@ -26,6 +32,12 @@ int main(int argc, char** argv){
         std::cerr<<"Bad port number "<<port<<" provided"<<std::endl;
         exit(1);
     }
+	
+	// Setup signal handler
+	if(std::signal(SIGQUIT, signal_exit) == SIG_ERR || std::signal(SIGINT, signal_exit) == SIG_ERR){
+		std::cerr<<"Unable to set a signal handler"<<std::endl;
+		exit(2);
+	}
 	
     // Create the socket file descriptor
     int socketfd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -50,6 +62,8 @@ int main(int argc, char** argv){
         exit(2);
     }
 
+	int connection_number = 0;
+	
 	// Continually listen and process input on the socket
 	while(1){
 		char buf[100];
