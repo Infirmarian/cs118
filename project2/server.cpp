@@ -10,6 +10,9 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <sys/un.h>
+#include <unistd.h>
+
 
 int main(int argc, char** argv){
     // Make sure arguments are valid
@@ -44,6 +47,13 @@ int main(int argc, char** argv){
     // Attempt to bind the socket
     if (bind(socketfd, (const struct sockaddr *)&serveraddr, sizeof(serveraddr)) < 0) {
         std::cerr<<"Could not bind socket"<<std::endl;
-        exit(1);
+        exit(2);
     }
+
+	// Continually listen and process input on the socket
+	while(1){
+		char buf[100];
+		read(socketfd, buf, 100);
+		std::cout<<buf<<std::endl;
+	}
 }

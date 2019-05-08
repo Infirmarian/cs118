@@ -30,7 +30,7 @@ int main(int argc, char** argv){
     int socketfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (socketfd < 0) {
         std::cerr<<"Could not create socket"<<std::endl;
-        exit(1);
+        exit(2);
     }
 
     // Set the server address
@@ -41,4 +41,10 @@ int main(int argc, char** argv){
     serveraddr.sin_family = AF_INET;
     serveraddr.sin_port = htons(port);
     serveraddr.sin_addr.s_addr = INADDR_ANY;
+    
+    if(connect(socketfd, (struct sockaddr *) &serveraddr, sizeof(serveraddr)) < 0){
+        std::cerr<<"Failed to connect to server"<<std::endl;
+        exit(2);
+    }
+    send(socketfd, "Hello world\n", 12, 0);
 }
