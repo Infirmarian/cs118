@@ -56,14 +56,15 @@ int main(int argc, char** argv){
     
     // Generate a randomized initial sequence number
     int sequence_number = random() % MAX_SEQ;
-    Packet* syn = new Packet(sequence_number, false, true, false); // New packet with only the Syn bit sent
+    Packet* syn = new Packet(sequence_number, 0, false, true, false); // New packet with only the Syn bit sent
     
     // Send the SYN message to server, and await a response
     if(syn->sendPacket(socketfd) == -1){
         std::cerr<<"Failed to send initial SYN bit packet: "<<strerror(errno)<<std::endl;
         exit(2);
     }
-    byte buf[524];
+    Packet* ack = new Packet(socketfd);
+    ack->toString();
     
         
 }

@@ -66,10 +66,21 @@ int main(int argc, char** argv){
 
 	int connection_number = 0;
 	
-	// Continually listen and process input on the socket
+	// Continually listen and process new connections on the socket
 	while(1){
-		char buf[100];
-		read(socketfd, buf, 100);
-		std::cout<<buf<<std::endl;
+		Packet* p = new Packet(socketfd);
+		p->toString();
+		if(p->SYNbit()){
+			// Setting up a new connection
+			int server_seqnum = random() % MAX_SEQ;
+			// SYNACK message (handshake part II)
+			Packet* ack = new Packet(server_seqnum, p->getSequenceNumber()+1, 1, 0, 0);
+			if(ack->sendPacket(socketfd) == -1){
+				std::cerr<<"Failed to send packet: "<<strerror(errno)<<std::endl;
+				exit(2);
+			}
+			
+			Packet* first_data = new Packet(socketfd);
+		}
 	}
 }

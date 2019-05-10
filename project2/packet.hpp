@@ -17,16 +17,19 @@ typedef unsigned char byte;
 #define DATA_LENGTH 512
 class Packet{
 public:
-	Packet(short sequenceNumber, bool ack, bool syn, bool fin);
+	Packet(short sequenceNumber, short ackNumber, bool ack, bool syn, bool fin);
 	Packet(byte* data, short length);
 	Packet(int socket);
+	~Packet();
     short getSequenceNumber();
     short getAckNumber();
 	bool ACKbit();
 	bool SYNbit();
 	bool FINbit();
 	short getPayloadSize();
+	byte* getData();
 	int sendPacket(int socket);
+	void toString();
 private:
     // FORMAT OF header
     /*  [0-1] - sequence number
@@ -35,8 +38,9 @@ private:
 	 	[5-6] - Payload size (bytes)
 	 	[7-11]- padding chars
 	 */
-    byte m_header[HEAD_LENGTH];
-	byte m_data[DATA_LENGTH];
+	byte* m_raw_data;
+	byte* m_data;
+	byte* m_header;
 };
 
 #endif /* header_hpp */
