@@ -10,6 +10,8 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #include "packet.hpp"
 
@@ -42,7 +44,12 @@ int main(int argc, char** argv){
     // Set all of the server information
     serveraddr.sin_family = AF_INET;
     serveraddr.sin_port = htons(port);
-    serveraddr.sin_addr.s_addr = INADDR_ANY;
+    
+    // TODO: Deal with the translation of a possible DNS name to IP address
+    if(strcmp(hostname, "localhost") == 0)
+        strcpy(hostname, "127.0.0.1");
+
+    serveraddr.sin_addr.s_addr = inet_addr(hostname);
     
     if(connect(socketfd, (struct sockaddr *) &serveraddr, sizeof(serveraddr)) < 0){
         std::cerr<<"Failed to connect to server"<<std::endl;
@@ -63,8 +70,26 @@ int main(int argc, char** argv){
         std::cerr<<"Failed to send initial SYN bit packet: "<<strerror(errno)<<std::endl;
         exit(2);
     }
-    Packet* ack = new Packet(socketfd);
+    Packet* ack = new Packet(socketfd, 0, 0);
     ack->toString();
     
-        
+    // Check if the server accepted or rejected the connection
+    if(!ack->SYNbit() || !ack->getAckNumber()){
+        std::cerr<<"Server rejected the connection :/"<<std::endl;
+        exit(3);
+    }
+    
+    // Open the file to be tranmitted to the server!
+    int fd = open(filename, O_RDONLY);
+    if(fd == -1){
+        std::cerr<<"Unable to open provided file: "<<strerror(errno)<<std::endl;
+        exit(2);
+    }
+    
+    
+    
+    delete(syn);
+    delete(ack);
+    close(fd);
+    close(socketfd);
 }

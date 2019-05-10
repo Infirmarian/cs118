@@ -20,6 +20,7 @@ public:
 	Packet(short sequenceNumber, short ackNumber, bool ack, bool syn, bool fin);
 	Packet(byte* data, short length);
 	Packet(int socket);
+	Packet(int socket, struct sockaddr* addr, socklen_t* len);
 	~Packet();
     short getSequenceNumber();
     short getAckNumber();
@@ -29,6 +30,7 @@ public:
 	short getPayloadSize();
 	byte* getData();
 	int sendPacket(int socket);
+	int sendPacket(int socket, struct sockaddr* addr, socklen_t len);
 	void toString();
 private:
     // FORMAT OF header

@@ -64,7 +64,16 @@ Packet::Packet(int socket){
     m_header = m_raw_data;
     m_data = m_raw_data + HEAD_LENGTH;
     
-    read(socket, m_raw_data, HEAD_LENGTH + DATA_LENGTH);
+    recv(socket, m_raw_data, HEAD_LENGTH + DATA_LENGTH, 0);
+}
+
+Packet::Packet(int socket, struct sockaddr* addr, socklen_t* len){
+    // Setup single data buffer
+    m_raw_data = new byte[HEAD_LENGTH + DATA_LENGTH];
+    m_header = m_raw_data;
+    m_data = m_raw_data + HEAD_LENGTH;
+    
+    recvfrom(socket, m_raw_data, HEAD_LENGTH+DATA_LENGTH, MSG_WAITALL, addr, len);
 }
 
 // Destructor makes sure to free data members
@@ -116,16 +125,10 @@ byte* Packet::getData(){
 // This function uses the "send" function to transport the packet (header and all) over the specified socket
 // Return: 0 indicates successful tranmission of the packet, -1 indicates error, and errno is set
 int Packet::sendPacket(int socket){
-    int status = 0;
-    byte* buffer = new byte[HEAD_LENGTH + this->getPayloadSize()];
-    memcpy(buffer, m_header, HEAD_LENGTH); // Copy header
-    memcpy(buffer + HEAD_LENGTH, m_data, this->getPayloadSize()); // Copy data
-    
-    if(send(socket, buffer, HEAD_LENGTH + this->getPayloadSize(), 0) == -1)
-        status = -1;
-    
-    delete [] buffer;
-    return status;
+    return (int) send(socket, m_raw_data, HEAD_LENGTH + this->getPayloadSize(), 0);
+}
+int Packet::sendPacket(int socket, struct sockaddr * addr, socklen_t len){
+    return (int) sendto(socket, m_raw_data, HEAD_LENGTH + this->getPayloadSize(), 0, addr, len);
 }
 
 
