@@ -125,10 +125,22 @@ byte* Packet::getData(){
 // This function uses the "send" function to transport the packet (header and all) over the specified socket
 // Return: 0 indicates successful tranmission of the packet, -1 indicates error, and errno is set
 int Packet::sendPacket(int socket){
-    return (int) send(socket, m_raw_data, HEAD_LENGTH + this->getPayloadSize(), 0);
+    if(send(socket, m_raw_data, HEAD_LENGTH + this->getPayloadSize(), 0) == -1){
+        std::cerr<<"Unable to send packet: "<<strerror(errno)<<std::endl;
+        return -1;
+    }
+    return 0;
 }
 int Packet::sendPacket(int socket, struct sockaddr * addr, socklen_t len){
     return (int) sendto(socket, m_raw_data, HEAD_LENGTH + this->getPayloadSize(), 0, addr, len);
+}
+
+// Load as much data as needed into the specified file from the givin file descriptor
+void Packet::loadData(int fd){
+    long res = read(fd, m_data, DATA_LENGTH);
+    // Set the data length field of the packet based on how much data was read in
+    m_header[5] = (res >> 8) & 0xff;
+    m_header[6] = res & 0xff;
 }
 
 

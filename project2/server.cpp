@@ -73,6 +73,8 @@ int main(int argc, char** argv){
 		  ///////////////////////////////////////////
 		 /////// SET UP INCOMING CONNECTION ////////
 		///////////////////////////////////////////
+		memset(&clientaddr, 0, sizeof(clientaddr));
+		addr_len = sizeof(clientaddr);
 		long bytes_read = recvfrom(socketfd, buf, 524, 0, (struct sockaddr *) &clientaddr, &addr_len);
 		if(bytes_read == -1){
 			std::cerr<<"Error reading in from connection: "<<strerror(errno)<<std::endl;
@@ -85,7 +87,8 @@ int main(int argc, char** argv){
 		// No new connection to set up
 		if(! p->SYNbit())
 			continue;
-		// TODO: This fails to connect because of error "Can't assign requested address"
+		
+		
 		if(connect(socketfd, (struct sockaddr *) &clientaddr, sizeof(clientaddr)) < 0){
 			std::cerr<<"Failed to connect to client: "<<strerror(errno)<<std::endl;
 			exit(2);
@@ -95,8 +98,7 @@ int main(int argc, char** argv){
 		int server_seqnum = random() % MAX_SEQ;
 		// SYNACK message (handshake part II)
 		Packet* ack = new Packet(server_seqnum, p->getSequenceNumber()+1, 1, 1, 0);
-		if(ack->sendPacket(socketfd, (struct sockaddr*) &clientaddr, addr_len) == -1){
-			std::cerr<<"Failed to send packet: "<<strerror(errno)<<std::endl;
+		if(ack->sendPacket(socketfd) == -1){
 			exit(2);
 		}
 		

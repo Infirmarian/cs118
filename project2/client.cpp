@@ -74,22 +74,31 @@ int main(int argc, char** argv){
     ack->toString();
     
     // Check if the server accepted or rejected the connection
-    if(!ack->SYNbit() || !ack->getAckNumber()){
+    if(!ack->SYNbit() || !ack->getAckNumber() || !ack->ACKbit()){
         std::cerr<<"Server rejected the connection :/"<<std::endl;
         exit(3);
     }
     
     // Open the file to be tranmitted to the server!
+    std::cout<<"Filename: "<<filename<<std::endl;
     int fd = open(filename, O_RDONLY);
     if(fd == -1){
         std::cerr<<"Unable to open provided file: "<<strerror(errno)<<std::endl;
         exit(2);
     }
+   // int file_size = lseek(fd, 0, SEEK_END);
+   // lseek(fd, 0, SEEK_SET); // Reset file position
+    Packet* initial_data = new Packet(++sequence_number, ack->getAckNumber()+1, 1,0,0);
+    initial_data->loadData(fd);
+    initial_data->toString();
+    initial_data->sendPacket(socketfd);
+    
     
     
     
     delete(syn);
     delete(ack);
+    delete(initial_data);
     close(fd);
     close(socketfd);
 }

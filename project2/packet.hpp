@@ -32,6 +32,7 @@ public:
 	int sendPacket(int socket);
 	int sendPacket(int socket, struct sockaddr* addr, socklen_t len);
 	void toString();
+	void loadData(int fd);
 private:
     // FORMAT OF header
     /*  [0-1] - sequence number
