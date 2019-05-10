@@ -13,6 +13,8 @@
 #include <sys/un.h>
 #include <unistd.h>
 #include <csignal>
+#include <cstdlib>
+#include <ctime>
 
 #include "packet.hpp"
 
@@ -69,7 +71,7 @@ int main(int argc, char** argv){
 	byte buf[HEAD_LENGTH + DATA_LENGTH];
 
 	// Continually listen and process new connections on the socket
-	while(1){
+	while(connection_number == 0){
 		  ///////////////////////////////////////////
 		 /////// SET UP INCOMING CONNECTION ////////
 		///////////////////////////////////////////
@@ -95,7 +97,8 @@ int main(int argc, char** argv){
 		}
 		
 		// Setting up a new connection
-		int server_seqnum = random() % MAX_SEQ;
+		std::srand((unsigned) std::time(0) - 10101);
+		int server_seqnum = (std::rand() + std::rand()) % MAX_SEQ;
 		// SYNACK message (handshake part II)
 		Packet* ack = new Packet(server_seqnum, p->getSequenceNumber()+1, 1, 1, 0);
 		if(ack->sendPacket(socketfd) == -1){

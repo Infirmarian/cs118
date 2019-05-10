@@ -12,10 +12,16 @@
 #include <netinet/in.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <cstdlib>
+#include <ctime>
 
 #include "packet.hpp"
 
 int main(int argc, char** argv){
+    int cwnd = 512;
+    int mincwnd = 512;
+    int ssthresh = 10240;
+    
     if(argc != 4){
         std::cerr<<"Bad arguments, expected \n./client [HOSTNAME] [PORT] [FILENAME]"<<std::endl;
         exit(1);
@@ -62,7 +68,8 @@ int main(int argc, char** argv){
     ////////////////////////////////////////
     
     // Generate a randomized initial sequence number
-    int sequence_number = random() % MAX_SEQ;
+    std::srand((unsigned)std::time(0));
+    int sequence_number = std::rand() % MAX_SEQ;
     Packet* syn = new Packet(sequence_number, 0, false, true, false); // New packet with only the Syn bit sent
     
     // Send the SYN message to server, and await a response
@@ -71,7 +78,6 @@ int main(int argc, char** argv){
         exit(2);
     }
     Packet* ack = new Packet(socketfd, 0, 0);
-    ack->toString();
     
     // Check if the server accepted or rejected the connection
     if(!ack->SYNbit() || !ack->getAckNumber() || !ack->ACKbit()){
@@ -86,12 +92,23 @@ int main(int argc, char** argv){
         std::cerr<<"Unable to open provided file: "<<strerror(errno)<<std::endl;
         exit(2);
     }
-   // int file_size = lseek(fd, 0, SEEK_END);
-   // lseek(fd, 0, SEEK_SET); // Reset file position
+    long file_size = lseek(fd, 0, SEEK_END);
+    lseek(fd, 0, SEEK_SET); // Reset file position
+    
+    // Begin data transmission
+    int data_sent = 0;
     Packet* initial_data = new Packet(++sequence_number, ack->getAckNumber()+1, 1,0,0);
-    initial_data->loadData(fd);
-    initial_data->toString();
+    data_sent += initial_data->loadData(fd);
     initial_data->sendPacket(socketfd);
+    
+    // Teardown
+    // TODO: Make this function correctly
+    if(data_sent >= file_size){
+        Packet* finpacket = new Packet(0,0,0,0,1);
+        finpacket->sendPacket(socketfd);
+        
+        Packet* finack = new Packet(socketfd);
+    }
     
     
     
