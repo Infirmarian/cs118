@@ -11,6 +11,8 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
+#include "packet.hpp"
+
 int main(int argc, char** argv){
     if(argc != 4){
         std::cerr<<"Bad arguments, expected \n./client [HOSTNAME] [PORT] [FILENAME]"<<std::endl;
@@ -46,5 +48,22 @@ int main(int argc, char** argv){
         std::cerr<<"Failed to connect to server"<<std::endl;
         exit(2);
     }
-    send(socketfd, "Hello world\n", 12, 0);
+    
+    
+      ////////////////////////////////////////
+     ///////// Handle TCP setup /////////////
+    ////////////////////////////////////////
+    
+    // Generate a randomized initial sequence number
+    int sequence_number = random() % MAX_SEQ;
+    Packet* syn = new Packet(sequence_number, false, true, false); // New packet with only the Syn bit sent
+    
+    // Send the SYN message to server, and await a response
+    if(syn->sendPacket(socketfd) == -1){
+        std::cerr<<"Failed to send initial SYN bit packet: "<<strerror(errno)<<std::endl;
+        exit(2);
+    }
+    byte buf[524];
+    
+        
 }

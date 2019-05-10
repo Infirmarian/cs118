@@ -14,6 +14,8 @@
 #include <unistd.h>
 #include <csignal>
 
+#include "packet.hpp"
+
 
 void signal_exit(int signum){
 	(void) signum;
