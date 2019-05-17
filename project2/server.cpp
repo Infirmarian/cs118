@@ -105,9 +105,23 @@ int main(int argc, char** argv){
 			exit(2);
 		}
 		
-		Packet* first_data = new Packet(socketfd);
-		first_data->toString();
-		
+		// Listen for next packets
+		while(1) {
+			// Listen for next packet
+			Packet* next_data = new Packet(socketfd);
+			next_data->toString();
+			
+			// Check for closed connection
+			if (next_data->FINbit())
+				break;
+			
+			// Send ack to client
+			Packet* ackn = new Packet(server_seqnum, next_data->getSequenceNumber()+1, 1, 0, 0);
+			if(ackn->sendPacket(socketfd) == -1){
+				exit(2);
+			}
+		}
+
 		connection_number++;
 	}
 	

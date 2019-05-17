@@ -100,14 +100,25 @@ int main(int argc, char** argv){
     Packet* initial_data = new Packet(++sequence_number, ack->getAckNumber()+1, 1,0,0);
     data_sent += initial_data->loadData(fd);
     initial_data->sendPacket(socketfd);
-    
+
+    // Continue data transmission
+    while (data_sent < file_size) { 
+        // Receive new ack from server
+        Packet* ackn = new Packet(socketfd, 0, 0);
+
+        // Send next packet
+        Packet* next_data = new Packet(++sequence_number, ackn->getAckNumber()+1, 1,0,0);
+        data_sent += next_data->loadData(fd);
+        next_data->sendPacket(socketfd);
+    }
+
     // Teardown
     // TODO: Make this function correctly
     if(data_sent >= file_size){
         Packet* finpacket = new Packet(0,0,0,0,1);
         finpacket->sendPacket(socketfd);
         
-        Packet* finack = new Packet(socketfd);
+        //Packet* finack = new Packet(socketfd);
     }
     
     
