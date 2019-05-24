@@ -115,7 +115,7 @@ bool Packet::FINbit(){
 
 short Packet::getPayloadSize(){
     short size = (short)(m_header[5] << 8 | m_header[6]);
-    return size % 512;
+    return size;
 }
 
 byte* Packet::getData(){
@@ -136,11 +136,12 @@ int Packet::sendPacket(int socket, struct sockaddr * addr, socklen_t len){
 }
 
 // Load as much data as needed into the specified file from the givin file descriptor
-void Packet::loadData(int fd){
-    long res = read(fd, m_data, DATA_LENGTH);
+short Packet::loadData(int fd){
+    short res = (short) read(fd, m_data, DATA_LENGTH);
     // Set the data length field of the packet based on how much data was read in
     m_header[5] = (res >> 8) & 0xff;
     m_header[6] = res & 0xff;
+    return res;
 }
 
 
