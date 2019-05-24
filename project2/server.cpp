@@ -7,6 +7,7 @@
 //
 
 #include <iostream>
+#include <fstream>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -104,12 +105,18 @@ int main(int argc, char** argv){
 		if(ack->sendPacket(socketfd) == -1){
 			exit(2);
 		}
+
+		// Define output file
+		std::ofstream outfile (std::to_string(connection_number+1) + ".file");
 		
 		// Listen for next packets
 		while(1) {
 			// Listen for next packet
 			Packet* next_data = new Packet(socketfd);
 			next_data->toString();
+
+			// Write data to file
+			outfile << next_data->getData();
 			
 			// Check for closed connection
 			if (next_data->FINbit())

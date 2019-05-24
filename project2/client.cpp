@@ -121,9 +121,6 @@ int main(int argc, char** argv){
         //Packet* finack = new Packet(socketfd);
     }
     
-    
-    
-    
     delete(syn);
     delete(ack);
     delete(initial_data);
