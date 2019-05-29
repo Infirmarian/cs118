@@ -113,7 +113,7 @@ int main(int argc, char** argv){
     int acks_recv = 0;
 
     // Continue data transmission
-    while (data_sent < file_size) { 
+    while (1) { 
         // Receive new ack from server
         // TODO: Implement loop to receive mutliple ACK packets at once?
         Packet* ackn = new Packet(socketfd, 0, 0);
@@ -125,6 +125,17 @@ int main(int argc, char** argv){
             cwnd += (512 * 512) / cwnd;
         }
 
+        // If the whole file has been sent, wait for the ACKs
+        // TODO: Add timeout check here, set seqnum variable to timed out packet, then "continue" loop
+        if (data_sent >= file_size) {
+            while (acks_recv < sequence_number) {
+                Packet* ackn = new Packet(socketfd, 0, 0);
+                acks_recv = ackn->getAckNumber();
+                ackn->toString();
+            }
+            break;
+        } 
+
         // Send next packets
         int window_limit = data_sent+cwnd;
         while (data_sent < window_limit && data_sent < file_size) {
@@ -133,13 +144,6 @@ int main(int argc, char** argv){
             sequence_number += next_data->getPayloadSize();
             next_data->sendPacket(socketfd);
         }
-    }
-
-    // Wait for ACKs
-    while (acks_recv < sequence_number) {
-        Packet* ackn = new Packet(socketfd, 0, 0);
-        acks_recv = ackn->getAckNumber();
-        ackn->toString();
     }
 
     // Teardown
