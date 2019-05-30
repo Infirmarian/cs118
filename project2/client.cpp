@@ -78,6 +78,7 @@ int main(int argc, char** argv){
         exit(2);
     }
     Packet* ack = new Packet(socketfd, 0, 0);
+    ack->toString();
     
     // Check if the server accepted or rejected the connection
     if(!ack->SYNbit() || !ack->getAckNumber() || !ack->ACKbit()){
@@ -97,19 +98,52 @@ int main(int argc, char** argv){
     
     // Begin data transmission
     int data_sent = 0;
-    Packet* initial_data = new Packet(++sequence_number, ack->getAckNumber()+1, 1,0,0);
+    Packet* initial_data = new Packet(++sequence_number, ack->getSequenceNumber()+1, 1,0,0);
     data_sent += initial_data->loadData(fd);
     initial_data->sendPacket(socketfd);
 
-    // Continue data transmission
-    while (data_sent < file_size) { 
-        // Receive new ack from server
-        Packet* ackn = new Packet(socketfd, 0, 0);
+    // Set next sequence number
+    if (file_size < 512) {
+        sequence_number += file_size;
+    } else {
+        sequence_number += 512;
+    }
 
-        // Send next packet
-        Packet* next_data = new Packet(++sequence_number, ackn->getAckNumber()+1, 1,0,0);
-        data_sent += next_data->loadData(fd);
-        next_data->sendPacket(socketfd);
+    // Initialize ACKed bytes variable
+    int acks_recv = 0;
+
+    // Continue data transmission
+    while (1) { 
+        // Receive new ack from server
+        // TODO: Implement loop to receive mutliple ACK packets at once?
+        Packet* ackn = new Packet(socketfd, 0, 0);
+        acks_recv = ackn->getAckNumber();
+        ackn->toString();
+        if (cwnd < ssthresh) {
+            cwnd += 512;
+        } else {
+            cwnd += (512 * 512) / cwnd;
+        }
+
+        // If the whole file has been sent, wait for the ACKs
+        // TODO: Add timeout check here, set seqnum variable to timed out packet, then "continue" loop
+        if (data_sent >= file_size) {
+            while (acks_recv < sequence_number) {
+                Packet* ackn = new Packet(socketfd, 0, 0);
+                acks_recv = ackn->getAckNumber();
+                ackn->toString();
+            }
+            break;
+        } 
+
+        // Send next packets
+        int window_limit = data_sent+cwnd;
+        while (data_sent < window_limit && data_sent < file_size) {
+            Packet* next_data = new Packet(sequence_number, ackn->getSequenceNumber()+1, 1,0,0);
+            data_sent += next_data->loadData(fd);
+            sequence_number += next_data->getPayloadSize();
+            next_data->sendPacket(socketfd);
+        }
     }
 
     // Teardown
@@ -120,6 +154,7 @@ int main(int argc, char** argv){
         
         //Packet* finack = new Packet(socketfd);
     }
+
     
     delete(syn);
     delete(ack);
