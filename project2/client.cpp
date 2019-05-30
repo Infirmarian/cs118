@@ -112,27 +112,51 @@ int main(int argc, char** argv){
     // Initialize ACKed bytes variable
     int acks_recv = 0;
 
+    // Initialize packets in the air counter (initially 1 because initial packet sent)
+    int packets_sent = 1;
+
+    // Flag to check if all packets ACKed
+    bool all_acked_flag = false;
+
+    // ACK first packet
+    Packet* ackn = new Packet(socketfd, 0, 0);
+    acks_recv = ackn->getAckNumber();
+    ackn->toString();
+
+    // Check if only one packet to send
+    if (data_sent >= file_size) {
+        all_acked_flag = true;
+    }
+    // SS / CA
+    if (cwnd < ssthresh) {
+        cwnd += 512;
+    } else {
+        cwnd += (512 * 512) / cwnd;
+    }
+
+    packets_sent--;
+
     // Continue data transmission
     while (1) { 
-        // Receive new ack from server
-        // TODO: Implement loop to receive mutliple ACK packets at once?
-        Packet* ackn = new Packet(socketfd, 0, 0);
-        acks_recv = ackn->getAckNumber();
-        ackn->toString();
-        if (cwnd < ssthresh) {
-            cwnd += 512;
-        } else {
-            cwnd += (512 * 512) / cwnd;
+        // Receive new acks from server for each unacked packet
+        while (packets_sent > 0) {
+            Packet* ackn = new Packet(socketfd, 0, 0);
+            acks_recv = ackn->getAckNumber();
+            ackn->toString();
+            if (data_sent >= file_size && acks_recv >= sequence_number) {
+                all_acked_flag = true;
+                break;
+            }
+            if (cwnd < ssthresh) {
+                cwnd += 512;
+            } else {
+                cwnd += (512 * 512) / cwnd;
+            }
+            packets_sent--;
         }
 
-        // If the whole file has been sent, wait for the ACKs
-        // TODO: Add timeout check here, set seqnum variable to timed out packet, then "continue" loop
-        if (data_sent >= file_size) {
-            while (acks_recv < sequence_number) {
-                Packet* ackn = new Packet(socketfd, 0, 0);
-                acks_recv = ackn->getAckNumber();
-                ackn->toString();
-            }
+        // If the whole file has been sent and ACKed, break out of loop
+        if (all_acked_flag) {
             break;
         } 
 
@@ -143,6 +167,7 @@ int main(int argc, char** argv){
             data_sent += next_data->loadData(fd);
             sequence_number += next_data->getPayloadSize();
             next_data->sendPacket(socketfd);
+            packets_sent++;
         }
     }
 
