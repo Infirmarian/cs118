@@ -99,26 +99,27 @@ int main(int argc, char** argv){
 		if(! p->SYNbit())
 			continue;
 		
-		
 		if(connect(socketfd, (struct sockaddr *) &clientaddr, sizeof(clientaddr)) < 0){
 			std::cerr<<"Failed to connect to client: "<<strerror(errno)<<std::endl;
 			exit(2);
 		}
 		
 		// Setting up a new connection
-		std::srand((unsigned) std::time(0) - 10101);
-		int server_seqnum = (std::rand() + std::rand()) % MAX_SEQ;
+		std::srand(std::time(0));
+    	int server_seqnum = std::rand() % MAX_SEQ;
 		// SYNACK message (handshake part II)
 		Packet* ack = new Packet(server_seqnum, p->getSequenceNumber()+1, 1, 1, 0);
 		ack->printSend(0, 0, false);
 		server_seqnum++;
+		if (server_seqnum >= MAX_SEQ) {
+			server_seqnum = 0;
+		}
 		if(ack->sendPacket(socketfd) == -1){
 			exit(2);
 		}
 
 		// Define output file
-		std::ofstream outfile (std::to_string(connection_number) + ".file");
-		open_file = connection_number;
+		std::ofstream outfile(std::to_string(connection_number) + ".file");
 		
 		// Listen for next packets
 		while(1) {
@@ -144,10 +145,10 @@ int main(int argc, char** argv){
 		Packet* finpacket = new Packet(0,0,0,0,1);
         finpacket->sendPacket(socketfd);
         finpacket->printSend(0, 0, false);
-		
+
+		outfile.close();
 		open_file = -1;
 		close(socketfd);
 		connection_number++;
 	}
-	
 }

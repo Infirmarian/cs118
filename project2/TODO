@@ -1,12 +1,7 @@
-TODO: (x signifies done)
+TODO:
 	- timer for each sent packet
 	- accept other addresses from command line?
-	x end wait on client side for fin packet from server
-	x send fin packet on server side
-	x receive multiple ack packets at the same time on client side by keeping track of how many packets are sent and loop receiving
-	x change print messages to match their format
-	x change server loop to accept more than 1 connection before closing
 	- last priority: extra credit FR protocol
 	- check other todo comments in code
-	x interupt protocol with open file on server side
-	- sequence numbers sometimes appear negative?
+	- 0.5 sec retransmission timer
+	- server not saving binary file correctly

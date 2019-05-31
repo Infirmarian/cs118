@@ -20,7 +20,7 @@
 int main(int argc, char** argv){
     int cwnd = 512;
     int mincwnd = 512;
-    int ssthresh = 10240;
+    int ssthresh = 5120;
     
     if(argc != 4){
         std::cerr<<"Bad arguments, expected \n./client [HOSTNAME] [PORT] [FILENAME]"<<std::endl;
@@ -62,13 +62,12 @@ int main(int argc, char** argv){
         exit(2);
     }
     
-    
       ////////////////////////////////////////
      ///////// Handle TCP setup /////////////
     ////////////////////////////////////////
     
     // Generate a randomized initial sequence number
-    std::srand((unsigned)std::time(0));
+    std::srand(std::time(0));
     int sequence_number = std::rand() % MAX_SEQ;
     Packet* syn = new Packet(sequence_number, 0, false, true, false); // New packet with only the Syn bit sent
     
@@ -156,10 +155,14 @@ int main(int argc, char** argv){
                 all_acked_flag = true;
                 break;
             }
-            if (cwnd < ssthresh) {
-                cwnd += 512;
+            if (cwnd < 10240) {
+                if (cwnd < ssthresh) {
+                    cwnd += 512;
+                } else {
+                    cwnd += (512 * 512) / cwnd;
+                }
             } else {
-                cwnd += (512 * 512) / cwnd;
+                cwnd = 10240;
             }
             packets_sent--;
         }
@@ -175,6 +178,9 @@ int main(int argc, char** argv){
             Packet* next_data = new Packet(sequence_number, ackn->getSequenceNumber()+1, 1,0,0);
             data_sent += next_data->loadData(fd);
             sequence_number += next_data->getPayloadSize();
+            if (sequence_number >= MAX_SEQ) {
+                sequence_number = 0;
+            }
             next_data->sendPacket(socketfd);
             // TODO: implement way to check if this is a duplicate packet
             next_data->printSend(cwnd, ssthresh, false);
