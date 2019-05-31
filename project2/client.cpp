@@ -129,13 +129,13 @@ int main(int argc, char** argv){
     // ACK first packet
     Packet* ackn = new Packet(socketfd, 0, 0);
     acks_recv = ackn->getAckNumber();
-    // TODO: should increase of CWND be before or after printing of message???
     ackn->printRecv(cwnd, ssthresh);
 
     // Check if only one packet to send
     if (data_sent >= file_size) {
         all_acked_flag = true;
     }
+    // TODO: should cwnd be increased on ACK of SYN?
     // SS / CA
     if (cwnd < ssthresh) {
         cwnd += 512;

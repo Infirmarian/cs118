@@ -8,5 +8,5 @@ TODO: (x signifies done)
 	x change server loop to accept more than 1 connection before closing
 	- last priority: extra credit FR protocol
 	- check other todo comments in code
-	- interupt protocol with open file on server side
+	x interupt protocol with open file on server side
 	- sequence numbers sometimes appear negative?

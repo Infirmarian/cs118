@@ -19,9 +19,17 @@
 
 #include "packet.hpp"
 
+// Set as -1 if not writing to file currently
+// Otherwise should be set as file number
+// Used for interrupt signal
+int open_file = -1;
 
 void signal_exit(int signum){
 	(void) signum;
+	if (open_file > 0) {
+		std::ofstream outfile (std::to_string(open_file) + ".file");
+		outfile<<"INTERRUPT";
+	}
 	_exit(0);
 }
 
@@ -43,13 +51,6 @@ int main(int argc, char** argv){
 		std::cerr<<"Unable to set a signal handler"<<std::endl;
 		exit(2);
 	}
-	
-    // Create the incoming socket file descriptor
-    /*int socketfd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (socketfd < 0) {
-		std::cerr<<"Could not create socket: "<<strerror(errno)<<std::endl;
-        exit(1);
-    }*/
 
     // Set the server and client addresses
 	struct sockaddr_in serveraddr;
@@ -61,13 +62,7 @@ int main(int argc, char** argv){
     serveraddr.sin_addr.s_addr = INADDR_ANY;
     serveraddr.sin_port = htons(port);
 
-    // Attempt to bind the socket
-    /*if (bind(socketfd, (const struct sockaddr *)&serveraddr, sizeof(serveraddr)) < 0) {
-        std::cerr<<"Could not bind socket"<<std::endl;
-        exit(2);
-    }*/
-
-	int connection_number = 0;
+	int connection_number = 1;
 	socklen_t addr_len;
 	byte buf[HEAD_LENGTH + DATA_LENGTH];
 
@@ -122,7 +117,8 @@ int main(int argc, char** argv){
 		}
 
 		// Define output file
-		std::ofstream outfile (std::to_string(connection_number+1) + ".file");
+		std::ofstream outfile (std::to_string(connection_number) + ".file");
+		open_file = connection_number;
 		
 		// Listen for next packets
 		while(1) {
@@ -144,6 +140,7 @@ int main(int argc, char** argv){
 				exit(2);
 			}
 		}
+		open_file = -1;
 		close(socketfd);
 		connection_number++;
 	}
