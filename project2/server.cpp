@@ -140,6 +140,11 @@ int main(int argc, char** argv){
 				exit(2);
 			}
 		}
+		// Send FIN packet before closing connection
+		Packet* finpacket = new Packet(0,0,0,0,1);
+        finpacket->sendPacket(socketfd);
+        finpacket->printSend(0, 0, false);
+		
 		open_file = -1;
 		close(socketfd);
 		connection_number++;

@@ -183,13 +183,13 @@ int main(int argc, char** argv){
     }
 
     // Teardown
-    // TODO: Make this function correctly
     if(data_sent >= file_size){
         Packet* finpacket = new Packet(0,0,0,0,1);
         finpacket->sendPacket(socketfd);
         finpacket->printSend(cwnd, ssthresh, false);
         
-        //Packet* finack = new Packet(socketfd);
+        Packet* finack = new Packet(socketfd);
+        finack->printRecv(cwnd, ssthresh);
     }
 
     

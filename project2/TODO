@@ -1,8 +1,8 @@
 TODO: (x signifies done)
 	- timer for each sent packet
 	- accept other addresses from command line?
-	- end wait on client side for fin packet from server
-	- send fin packet on server side
+	x end wait on client side for fin packet from server
+	x send fin packet on server side
 	x receive multiple ack packets at the same time on client side by keeping track of how many packets are sent and loop receiving
 	x change print messages to match their format
 	x change server loop to accept more than 1 connection before closing
