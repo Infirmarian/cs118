@@ -152,3 +152,36 @@ void Packet::toString(){
     std::cout<<"Length: "<<getPayloadSize()<<std::endl;
     std::cout<<"------------------------------------------\n"<<getData()<<std::endl;
 }
+
+// Print a packet message that was sent from caller
+void Packet::printSend(int cwnd, int ssthresh, bool dup){
+    std::cout<<"SEND "<<getSequenceNumber()<<" "<<getAckNumber()<< " "<<cwnd<<" "<<ssthresh;
+    if (ACKbit()) {
+        std::cout<<" [ACK]";
+    }
+    if (SYNbit()) {
+        std::cout<<" [SYN]";
+    }
+    if (FINbit()) {
+        std::cout<<" [FIN]";
+    }
+    if (dup) {
+        std::cout<<" [DUP]";
+    }
+    std::cout<<std::endl;
+}
+
+// Print a packet message that was received by caller
+void Packet::printRecv(int cwnd, int ssthresh){
+    std::cout<<"RECV "<<getSequenceNumber()<<" "<<getAckNumber()<< " "<<cwnd<<" "<<ssthresh;
+    if (ACKbit()) {
+        std::cout<<" [ACK]";
+    }
+    if (SYNbit()) {
+        std::cout<<" [SYN]";
+    }
+    if (FINbit()) {
+        std::cout<<" [FIN]";
+    }
+    std::cout<<std::endl;
+}

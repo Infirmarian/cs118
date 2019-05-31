@@ -77,8 +77,12 @@ int main(int argc, char** argv){
         std::cerr<<"Failed to send initial SYN bit packet: "<<strerror(errno)<<std::endl;
         exit(2);
     }
+    // Print send message
+    syn->printSend(cwnd, ssthresh, false);
+
+    // Receive ACK and print recv message
     Packet* ack = new Packet(socketfd, 0, 0);
-    ack->toString();
+    ack->printRecv(cwnd, ssthresh);
     
     // Check if the server accepted or rejected the connection
     if(!ack->SYNbit() || !ack->getAckNumber() || !ack->ACKbit()){
@@ -87,7 +91,7 @@ int main(int argc, char** argv){
     }
     
     // Open the file to be tranmitted to the server!
-    std::cout<<"Filename: "<<filename<<std::endl;
+    // std::cout<<"Filename: "<<filename<<std::endl;
     int fd = open(filename, O_RDONLY);
     if(fd == -1){
         std::cerr<<"Unable to open provided file: "<<strerror(errno)<<std::endl;
@@ -101,6 +105,10 @@ int main(int argc, char** argv){
     Packet* initial_data = new Packet(++sequence_number, ack->getSequenceNumber()+1, 1,0,0);
     data_sent += initial_data->loadData(fd);
     initial_data->sendPacket(socketfd);
+
+    // TODO: increase CWND before print???
+    // Print send message
+    initial_data->printSend(cwnd, ssthresh, false);
 
     // Set next sequence number
     if (file_size < 512) {
@@ -121,7 +129,8 @@ int main(int argc, char** argv){
     // ACK first packet
     Packet* ackn = new Packet(socketfd, 0, 0);
     acks_recv = ackn->getAckNumber();
-    ackn->toString();
+    // TODO: should increase of CWND be before or after printing of message???
+    ackn->printRecv(cwnd, ssthresh);
 
     // Check if only one packet to send
     if (data_sent >= file_size) {
@@ -142,7 +151,7 @@ int main(int argc, char** argv){
         while (packets_sent > 0) {
             Packet* ackn = new Packet(socketfd, 0, 0);
             acks_recv = ackn->getAckNumber();
-            ackn->toString();
+            ackn->printRecv(cwnd, ssthresh);
             if (data_sent >= file_size && acks_recv >= sequence_number) {
                 all_acked_flag = true;
                 break;
@@ -167,6 +176,8 @@ int main(int argc, char** argv){
             data_sent += next_data->loadData(fd);
             sequence_number += next_data->getPayloadSize();
             next_data->sendPacket(socketfd);
+            // TODO: implement way to check if this is a duplicate packet
+            next_data->printSend(cwnd, ssthresh, false);
             packets_sent++;
         }
     }
@@ -176,6 +187,7 @@ int main(int argc, char** argv){
     if(data_sent >= file_size){
         Packet* finpacket = new Packet(0,0,0,0,1);
         finpacket->sendPacket(socketfd);
+        finpacket->printSend(cwnd, ssthresh, false);
         
         //Packet* finack = new Packet(socketfd);
     }

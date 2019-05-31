@@ -85,7 +85,7 @@ int main(int argc, char** argv){
 		}
 		// Convert read in bytes to a Packet object
 		Packet* p = new Packet(buf, (short)bytes_read);
-		p->toString();
+		p->printRecv(0, 0);
 
 		// No new connection to set up
 		if(! p->SYNbit())
@@ -102,6 +102,7 @@ int main(int argc, char** argv){
 		int server_seqnum = (std::rand() + std::rand()) % MAX_SEQ;
 		// SYNACK message (handshake part II)
 		Packet* ack = new Packet(server_seqnum, p->getSequenceNumber()+1, 1, 1, 0);
+		ack->printSend(0, 0, false);
 		server_seqnum++;
 		if(ack->sendPacket(socketfd) == -1){
 			exit(2);
@@ -114,7 +115,7 @@ int main(int argc, char** argv){
 		while(1) {
 			// Listen for next packet
 			Packet* next_data = new Packet(socketfd);
-			next_data->toString();
+			next_data->printRecv(0, 0);
 
 			// Write data to file
 			outfile << next_data->getData();
@@ -125,6 +126,7 @@ int main(int argc, char** argv){
 			
 			// Send ack to client
 			Packet* ackn = new Packet(server_seqnum, next_data->getSequenceNumber()+next_data->getPayloadSize(), 1, 0, 0);
+			ackn->printSend(0, 0, false);
 			if(ackn->sendPacket(socketfd) == -1){
 				exit(2);
 			}
