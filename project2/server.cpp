@@ -45,11 +45,11 @@ int main(int argc, char** argv){
 	}
 	
     // Create the incoming socket file descriptor
-    int socketfd = socket(AF_INET, SOCK_DGRAM, 0);
+    /*int socketfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (socketfd < 0) {
 		std::cerr<<"Could not create socket: "<<strerror(errno)<<std::endl;
         exit(1);
-    }
+    }*/
 
     // Set the server and client addresses
 	struct sockaddr_in serveraddr;
@@ -62,17 +62,30 @@ int main(int argc, char** argv){
     serveraddr.sin_port = htons(port);
 
     // Attempt to bind the socket
-    if (bind(socketfd, (const struct sockaddr *)&serveraddr, sizeof(serveraddr)) < 0) {
+    /*if (bind(socketfd, (const struct sockaddr *)&serveraddr, sizeof(serveraddr)) < 0) {
         std::cerr<<"Could not bind socket"<<std::endl;
         exit(2);
-    }
+    }*/
 
 	int connection_number = 0;
 	socklen_t addr_len;
 	byte buf[HEAD_LENGTH + DATA_LENGTH];
 
 	// Continually listen and process new connections on the socket
-	while(connection_number == 0){
+	while(1){
+		// Create the incoming socket file descriptor
+    	int socketfd = socket(AF_INET, SOCK_DGRAM, 0);
+    	if (socketfd < 0) {
+			std::cerr<<"Could not create socket: "<<strerror(errno)<<std::endl;
+        	exit(1);
+    	}
+
+		// Attempt to bind the socket
+    	if (bind(socketfd, (const struct sockaddr *)&serveraddr, sizeof(serveraddr)) < 0) {
+        	std::cerr<<"Could not bind socket"<<std::endl;
+        	exit(2);
+    	}
+
 		  ///////////////////////////////////////////
 		 /////// SET UP INCOMING CONNECTION ////////
 		///////////////////////////////////////////
@@ -131,7 +144,7 @@ int main(int argc, char** argv){
 				exit(2);
 			}
 		}
-
+		close(socketfd);
 		connection_number++;
 	}
 	
