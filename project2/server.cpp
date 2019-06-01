@@ -27,8 +27,11 @@ int open_file = -1;
 void signal_exit(int signum){
 	(void) signum;
 	if (open_file > 0) {
-		std::ofstream outfile (std::to_string(open_file) + ".file");
-		outfile<<"INTERRUPT";
+		std::cout<<std::to_string(open_file)<<std::endl;
+		std::ofstream outfile (std::to_string(open_file) + ".file", std::ofstream::trunc);
+		const char* msg = "INTERRUPT";
+		outfile.write(msg, sizeof(msg)+1);
+		outfile.close();
 	}
 	_exit(0);
 }
@@ -119,7 +122,8 @@ int main(int argc, char** argv){
 		}
 
 		// Define output file
-		std::ofstream outfile(std::to_string(connection_number) + ".file");
+		std::ofstream outfile(std::to_string(connection_number) + ".file", std::ofstream::trunc);
+		open_file = connection_number;
 		
 		// Listen for next packets
 		while(1) {
@@ -128,7 +132,7 @@ int main(int argc, char** argv){
 			next_data->printRecv(0, 0);
 
 			// Write data to file
-			outfile << next_data->getData();
+			outfile.write((char*)next_data->getData(), next_data->getPayloadSize());
 			
 			// Check for closed connection
 			if (next_data->FINbit())
