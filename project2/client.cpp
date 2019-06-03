@@ -20,7 +20,7 @@
 int main(int argc, char** argv){
     int cwnd = 512;
     int mincwnd = 512;
-    int ssthresh = 10240;
+    int ssthresh = 5120;
     
     if(argc != 4){
         std::cerr<<"Bad arguments, expected \n./client [HOSTNAME] [PORT] [FILENAME]"<<std::endl;
@@ -62,13 +62,12 @@ int main(int argc, char** argv){
         exit(2);
     }
     
-    
       ////////////////////////////////////////
      ///////// Handle TCP setup /////////////
     ////////////////////////////////////////
     
     // Generate a randomized initial sequence number
-    std::srand((unsigned)std::time(0));
+    std::srand(std::time(0));
     int sequence_number = std::rand() % MAX_SEQ;
     Packet* syn = new Packet(sequence_number, 0, false, true, false); // New packet with only the Syn bit sent
     
@@ -77,8 +76,12 @@ int main(int argc, char** argv){
         std::cerr<<"Failed to send initial SYN bit packet: "<<strerror(errno)<<std::endl;
         exit(2);
     }
+    // Print send message
+    syn->printSend(cwnd, ssthresh, false);
+
+    // Receive ACK and print recv message
     Packet* ack = new Packet(socketfd, 0, 0);
-    ack->toString();
+    ack->printRecv(cwnd, ssthresh);
     
     // Check if the server accepted or rejected the connection
     if(!ack->SYNbit() || !ack->getAckNumber() || !ack->ACKbit()){
@@ -87,7 +90,7 @@ int main(int argc, char** argv){
     }
     
     // Open the file to be tranmitted to the server!
-    std::cout<<"Filename: "<<filename<<std::endl;
+    // std::cout<<"Filename: "<<filename<<std::endl;
     int fd = open(filename, O_RDONLY);
     if(fd == -1){
         std::cerr<<"Unable to open provided file: "<<strerror(errno)<<std::endl;
@@ -102,6 +105,10 @@ int main(int argc, char** argv){
     data_sent += initial_data->loadData(fd);
     initial_data->sendPacket(socketfd);
 
+    // TODO: increase CWND before print???
+    // Print send message
+    initial_data->printSend(cwnd, ssthresh, false);
+
     // Set next sequence number
     if (file_size < 512) {
         sequence_number += file_size;
@@ -112,27 +119,56 @@ int main(int argc, char** argv){
     // Initialize ACKed bytes variable
     int acks_recv = 0;
 
+    // Initialize packets in the air counter (initially 1 because initial packet sent)
+    int packets_sent = 1;
+
+    // Flag to check if all packets ACKed
+    bool all_acked_flag = false;
+
+    // ACK first packet
+    Packet* ackn = new Packet(socketfd, 0, 0);
+    acks_recv = ackn->getAckNumber();
+    ackn->printRecv(cwnd, ssthresh);
+
+    // Check if only one packet to send
+    if (data_sent >= file_size) {
+        all_acked_flag = true;
+    }
+    // TODO: should cwnd be increased on ACK of SYN?
+    // SS / CA
+    if (cwnd < ssthresh) {
+        cwnd += 512;
+    } else {
+        cwnd += (512 * 512) / cwnd;
+    }
+
+    packets_sent--;
+
     // Continue data transmission
     while (1) { 
-        // Receive new ack from server
-        // TODO: Implement loop to receive mutliple ACK packets at once?
-        Packet* ackn = new Packet(socketfd, 0, 0);
-        acks_recv = ackn->getAckNumber();
-        ackn->toString();
-        if (cwnd < ssthresh) {
-            cwnd += 512;
-        } else {
-            cwnd += (512 * 512) / cwnd;
+        // Receive new acks from server for each unacked packet
+        while (packets_sent > 0) {
+            Packet* ackn = new Packet(socketfd, 0, 0);
+            acks_recv = ackn->getAckNumber();
+            ackn->printRecv(cwnd, ssthresh);
+            if (data_sent >= file_size && acks_recv >= sequence_number) {
+                all_acked_flag = true;
+                break;
+            }
+            if (cwnd < 10240) {
+                if (cwnd < ssthresh) {
+                    cwnd += 512;
+                } else {
+                    cwnd += (512 * 512) / cwnd;
+                }
+            } else {
+                cwnd = 10240;
+            }
+            packets_sent--;
         }
 
-        // If the whole file has been sent, wait for the ACKs
-        // TODO: Add timeout check here, set seqnum variable to timed out packet, then "continue" loop
-        if (data_sent >= file_size) {
-            while (acks_recv < sequence_number) {
-                Packet* ackn = new Packet(socketfd, 0, 0);
-                acks_recv = ackn->getAckNumber();
-                ackn->toString();
-            }
+        // If the whole file has been sent and ACKed, break out of loop
+        if (all_acked_flag) {
             break;
         } 
 
@@ -142,17 +178,24 @@ int main(int argc, char** argv){
             Packet* next_data = new Packet(sequence_number, ackn->getSequenceNumber()+1, 1,0,0);
             data_sent += next_data->loadData(fd);
             sequence_number += next_data->getPayloadSize();
+            if (sequence_number >= MAX_SEQ) {
+                sequence_number = 0;
+            }
             next_data->sendPacket(socketfd);
+            // TODO: implement way to check if this is a duplicate packet
+            next_data->printSend(cwnd, ssthresh, false);
+            packets_sent++;
         }
     }
 
     // Teardown
-    // TODO: Make this function correctly
     if(data_sent >= file_size){
         Packet* finpacket = new Packet(0,0,0,0,1);
         finpacket->sendPacket(socketfd);
+        finpacket->printSend(cwnd, ssthresh, false);
         
-        //Packet* finack = new Packet(socketfd);
+        Packet* finack = new Packet(socketfd);
+        finack->printRecv(cwnd, ssthresh);
     }
 
     

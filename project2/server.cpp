@@ -19,9 +19,20 @@
 
 #include "packet.hpp"
 
+// Set as -1 if not writing to file currently
+// Otherwise should be set as file number
+// Used for interrupt signal
+int open_file = -1;
 
 void signal_exit(int signum){
 	(void) signum;
+	if (open_file > 0) {
+		std::cout<<std::to_string(open_file)<<std::endl;
+		std::ofstream outfile (std::to_string(open_file) + ".file", std::ofstream::trunc);
+		const char* msg = "INTERRUPT";
+		outfile.write(msg, sizeof(msg)+1);
+		outfile.close();
+	}
 	_exit(0);
 }
 
@@ -43,13 +54,6 @@ int main(int argc, char** argv){
 		std::cerr<<"Unable to set a signal handler"<<std::endl;
 		exit(2);
 	}
-	
-    // Create the incoming socket file descriptor
-    int socketfd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (socketfd < 0) {
-		std::cerr<<"Could not create socket: "<<strerror(errno)<<std::endl;
-        exit(1);
-    }
 
     // Set the server and client addresses
 	struct sockaddr_in serveraddr;
@@ -61,18 +65,25 @@ int main(int argc, char** argv){
     serveraddr.sin_addr.s_addr = INADDR_ANY;
     serveraddr.sin_port = htons(port);
 
-    // Attempt to bind the socket
-    if (bind(socketfd, (const struct sockaddr *)&serveraddr, sizeof(serveraddr)) < 0) {
-        std::cerr<<"Could not bind socket"<<std::endl;
-        exit(2);
-    }
-
-	int connection_number = 0;
+	int connection_number = 1;
 	socklen_t addr_len;
 	byte buf[HEAD_LENGTH + DATA_LENGTH];
 
 	// Continually listen and process new connections on the socket
-	while(connection_number == 0){
+	while(1){
+		// Create the incoming socket file descriptor
+    	int socketfd = socket(AF_INET, SOCK_DGRAM, 0);
+    	if (socketfd < 0) {
+			std::cerr<<"Could not create socket: "<<strerror(errno)<<std::endl;
+        	exit(1);
+    	}
+
+		// Attempt to bind the socket
+    	if (bind(socketfd, (const struct sockaddr *)&serveraddr, sizeof(serveraddr)) < 0) {
+        	std::cerr<<"Could not bind socket"<<std::endl;
+        	exit(2);
+    	}
+
 		  ///////////////////////////////////////////
 		 /////// SET UP INCOMING CONNECTION ////////
 		///////////////////////////////////////////
@@ -85,12 +96,11 @@ int main(int argc, char** argv){
 		}
 		// Convert read in bytes to a Packet object
 		Packet* p = new Packet(buf, (short)bytes_read);
-		p->toString();
+		p->printRecv(0, 0);
 
 		// No new connection to set up
 		if(! p->SYNbit())
 			continue;
-		
 		
 		if(connect(socketfd, (struct sockaddr *) &clientaddr, sizeof(clientaddr)) < 0){
 			std::cerr<<"Failed to connect to client: "<<strerror(errno)<<std::endl;
@@ -98,26 +108,31 @@ int main(int argc, char** argv){
 		}
 		
 		// Setting up a new connection
-		std::srand((unsigned) std::time(0) - 10101);
-		int server_seqnum = (std::rand() + std::rand()) % MAX_SEQ;
+		std::srand(std::time(0));
+    	int server_seqnum = std::rand() % MAX_SEQ;
 		// SYNACK message (handshake part II)
 		Packet* ack = new Packet(server_seqnum, p->getSequenceNumber()+1, 1, 1, 0);
+		ack->printSend(0, 0, false);
 		server_seqnum++;
+		if (server_seqnum >= MAX_SEQ) {
+			server_seqnum = 0;
+		}
 		if(ack->sendPacket(socketfd) == -1){
 			exit(2);
 		}
 
 		// Define output file
-		std::ofstream outfile (std::to_string(connection_number+1) + ".file");
+		std::ofstream outfile(std::to_string(connection_number) + ".file", std::ofstream::trunc);
+		open_file = connection_number;
 		
 		// Listen for next packets
 		while(1) {
 			// Listen for next packet
 			Packet* next_data = new Packet(socketfd);
-			next_data->toString();
+			next_data->printRecv(0, 0);
 
 			// Write data to file
-			outfile << next_data->getData();
+			outfile.write((char*)next_data->getData(), next_data->getPayloadSize());
 			
 			// Check for closed connection
 			if (next_data->FINbit())
@@ -125,12 +140,19 @@ int main(int argc, char** argv){
 			
 			// Send ack to client
 			Packet* ackn = new Packet(server_seqnum, next_data->getSequenceNumber()+next_data->getPayloadSize(), 1, 0, 0);
+			ackn->printSend(0, 0, false);
 			if(ackn->sendPacket(socketfd) == -1){
 				exit(2);
 			}
 		}
+		// Send FIN packet before closing connection
+		Packet* finpacket = new Packet(0,0,0,0,1);
+        finpacket->sendPacket(socketfd);
+        finpacket->printSend(0, 0, false);
 
+		outfile.close();
+		open_file = -1;
+		close(socketfd);
 		connection_number++;
 	}
-	
 }

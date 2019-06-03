@@ -1,9 +1,6 @@
 TODO:
 	- timer for each sent packet
 	- accept other addresses from command line?
-	- end wait on client side for fin packet from server
-	- send fin packet on server side
-	- receive multiple ack packets at the same time on client side by keeping track of how many packets are sent and loop receiving
-	- change print messages to match their format
-	- change server loop to accept more than 1 connection before closing
 	- last priority: extra credit FR protocol
+	- check other todo comments in code
+	- 0.5 sec retransmission timer
