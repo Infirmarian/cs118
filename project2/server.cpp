@@ -96,6 +96,13 @@ int main(int argc, char** argv){
 		}
 		// Convert read in bytes to a Packet object
 		Packet* p = new Packet(buf, (short)bytes_read);
+		if (p->timeoutHit()) {
+        	std::ofstream outfile(std::to_string(connection_number) + ".file", std::ofstream::trunc);
+			outfile.close();
+			close(socketfd);
+			connection_number++;
+			continue;
+    	}
 		p->printRecv(0, 0);
 
 		// No new connection to set up
@@ -124,11 +131,18 @@ int main(int argc, char** argv){
 		// Define output file
 		std::ofstream outfile(std::to_string(connection_number) + ".file", std::ofstream::trunc);
 		open_file = connection_number;
+
+		// Flag for timeout
+		bool timeout_occurs = false;
 		
 		// Listen for next packets
 		while(1) {
 			// Listen for next packet
 			Packet* next_data = new Packet(socketfd);
+			if (next_data->timeoutHit()) {
+				timeout_occurs = true;
+				break;
+    		}
 			next_data->printRecv(0, 0);
 
 			// Write data to file
@@ -146,10 +160,12 @@ int main(int argc, char** argv){
 			}
 		}
 		// Send FIN packet before closing connection
-		Packet* finpacket = new Packet(0,0,0,0,1);
-        finpacket->sendPacket(socketfd);
-        finpacket->printSend(0, 0, false);
-
+		if (!timeout_occurs) {
+			Packet* finpacket = new Packet(0,0,0,0,1);
+			finpacket->sendPacket(socketfd);
+			finpacket->printSend(0, 0, false);
+		}
+		
 		outfile.close();
 		open_file = -1;
 		close(socketfd);

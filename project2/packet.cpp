@@ -9,6 +9,7 @@
 #include <iostream>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <sys/time.h>
 
 #include "packet.hpp"
 
@@ -41,6 +42,7 @@ Packet::Packet(short sequenceNumber, short ackNumber, bool ack, bool syn, bool f
         flags = flags | FIN;
     m_header[4] = flags;
     m_header[5] = m_header[6] = 0;
+    m_timeout = false;
 }
 
 // Constructor to build a packet based on received data
@@ -56,6 +58,7 @@ Packet::Packet(byte* data, short length){
     }
     memcpy(m_header, data, HEAD_LENGTH);
     memcpy(m_data, data + HEAD_LENGTH, length - HEAD_LENGTH);
+    m_timeout = false;
 }
 
 Packet::Packet(int socket){
@@ -63,8 +66,17 @@ Packet::Packet(int socket){
     m_raw_data = new byte[HEAD_LENGTH + DATA_LENGTH];
     m_header = m_raw_data;
     m_data = m_raw_data + HEAD_LENGTH;
-    
-    recv(socket, m_raw_data, HEAD_LENGTH + DATA_LENGTH, 0);
+
+    // Setup timout interval
+    struct timeval timeout={10,0};
+    setsockopt(socket,SOL_SOCKET,SO_RCVTIMEO,(char*)&timeout,sizeof(struct timeval));
+
+    int rec_check = recv(socket, m_raw_data, HEAD_LENGTH + DATA_LENGTH, 0);
+
+    if (rec_check < 0) {
+        std::cerr<<"Timout interval hit"<<std::endl;
+        m_timeout = true;
+    }
 }
 
 Packet::Packet(int socket, struct sockaddr* addr, socklen_t* len){
@@ -73,7 +85,16 @@ Packet::Packet(int socket, struct sockaddr* addr, socklen_t* len){
     m_header = m_raw_data;
     m_data = m_raw_data + HEAD_LENGTH;
     
-    recvfrom(socket, m_raw_data, HEAD_LENGTH+DATA_LENGTH, MSG_WAITALL, addr, len);
+    // Setup timout interval
+    struct timeval timeout={10,0};
+    setsockopt(socket,SOL_SOCKET,SO_RCVTIMEO,(char*)&timeout,sizeof(struct timeval));
+
+    int rec_check = recvfrom(socket, m_raw_data, HEAD_LENGTH+DATA_LENGTH, MSG_WAITALL, addr, len);
+
+    if (rec_check < 0) {
+        std::cerr<<"Timout interval hit"<<std::endl;
+        m_timeout = true;
+    }
 }
 
 // Destructor makes sure to free data members
@@ -184,4 +205,8 @@ void Packet::printRecv(int cwnd, int ssthresh){
         std::cout<<" [FIN]";
     }
     std::cout<<std::endl;
+}
+
+bool Packet::timeoutHit() {
+    return m_timeout;
 }

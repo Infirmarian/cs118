@@ -51,7 +51,7 @@ int main(int argc, char** argv){
     serveraddr.sin_family = AF_INET;
     serveraddr.sin_port = htons(port);
     
-    // TODO: Deal with the translation of a possible DNS name to IP address
+    // Set localhost IP number
     if(strcmp(hostname, "localhost") == 0)
         strcpy(hostname, "127.0.0.1");
 
@@ -81,6 +81,10 @@ int main(int argc, char** argv){
 
     // Receive ACK and print recv message
     Packet* ack = new Packet(socketfd, 0, 0);
+    if (ack->timeoutHit()) {
+        close(socketfd);
+        exit(2);
+    }
     ack->printRecv(cwnd, ssthresh);
     
     // Check if the server accepted or rejected the connection
@@ -127,6 +131,10 @@ int main(int argc, char** argv){
 
     // ACK first packet
     Packet* ackn = new Packet(socketfd, 0, 0);
+    if (ackn->timeoutHit()) {
+        close(socketfd);
+        exit(2);
+    }
     acks_recv = ackn->getAckNumber();
     ackn->printRecv(cwnd, ssthresh);
 
@@ -149,6 +157,10 @@ int main(int argc, char** argv){
         // Receive new acks from server for each unacked packet
         while (packets_sent > 0) {
             Packet* ackn = new Packet(socketfd, 0, 0);
+            if (ackn->timeoutHit()) {
+                close(socketfd);
+                exit(2);
+            }
             acks_recv = ackn->getAckNumber();
             ackn->printRecv(cwnd, ssthresh);
             if (data_sent >= file_size && acks_recv >= sequence_number) {
@@ -195,10 +207,13 @@ int main(int argc, char** argv){
         finpacket->printSend(cwnd, ssthresh, false);
         
         Packet* finack = new Packet(socketfd);
+        if (finack->timeoutHit()) {
+            close(socketfd);
+            exit(2);
+        }
         finack->printRecv(cwnd, ssthresh);
     }
 
-    
     delete(syn);
     delete(ack);
     delete(initial_data);

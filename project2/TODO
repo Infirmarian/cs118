@@ -1,7 +1,5 @@
 TODO:
-	- accept other addresses from command line?
 	- last priority: extra credit FR protocol
 	- check other todo comments in code
 	- 0.5 sec retransmission timer
-	- 10 second close connection timer for both sides
 	- 2 second close timer for client
