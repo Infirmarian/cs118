@@ -2,4 +2,9 @@ TODO:
 	- last priority: extra credit FR protocol
 	- check other todo comments in code
 	- 0.5 sec retransmission timer
+		- retransmit packet after last ACKed packet
+		- change cwnd and ssthresh upon timeout
+		- set DUP flag when calling send print
+		- update sequence number to highest ACKed packet after retransmission
+		- make sure server saves file correctly upon retransmission (does the server discard future packets after dropped packet??)
 	- 2 second close timer for client
