@@ -16,6 +16,7 @@
 #include <csignal>
 #include <cstdlib>
 #include <ctime>
+#include <vector>
 
 #include "packet.hpp"
 
@@ -34,6 +35,27 @@ void signal_exit(int signum){
 		outfile.close();
 	}
 	_exit(0);
+}
+
+void insertion_sort(std::vector<Packet*> &packet_cache, Packet* new_packet) {
+	if (packet_cache.size() == 0) {
+		packet_cache.push_back(new_packet);
+	} else if (new_packet->getSequenceNumber() > (*packet_cache.end()-1)->getSequenceNumber()) {
+		packet_cache.push_back(new_packet);
+	} else {
+		std::vector<Packet*>::iterator it = packet_cache.end()-2;
+		while(1) {
+			if (new_packet->getSequenceNumber() > (*it)->getSequenceNumber()) {
+				packet_cache.insert(it, new_packet);
+				break;
+			}
+			it--;
+			if (it == packet_cache.begin()) {
+				packet_cache.insert(it, new_packet);
+				break;
+			}
+		}
+	}
 }
 
 int main(int argc, char** argv){
@@ -134,6 +156,12 @@ int main(int argc, char** argv){
 
 		// Flag for timeout
 		bool timeout_occurs = false;
+
+		// Save next expected sequence number
+		int next_expected = p->getSequenceNumber()+1;
+
+		// Set up cache vector for unexpected packets
+		std::vector<Packet*> packet_cache;
 		
 		// Listen for next packets
 		while(1) {
@@ -146,14 +174,33 @@ int main(int argc, char** argv){
 			next_data->printRecv(0, 0);
 
 			// Write data to file
-			outfile.write((char*)next_data->getData(), next_data->getPayloadSize());
+			if (next_data->getSequenceNumber() == next_expected) {
+				outfile.write((char*)next_data->getData(), next_data->getPayloadSize());
+				next_expected = next_data->getSequenceNumber()+next_data->getPayloadSize();
+				if (packet_cache.size() > 0) {
+					std::vector<Packet*>::iterator it = packet_cache.begin();
+					while(it != packet_cache.end()) {
+						if ((*it)->getSequenceNumber() == next_expected) {
+							outfile.write((char*)(*it)->getData(), (*it)->getPayloadSize());
+							next_expected = (*it)->getSequenceNumber()+(*it)->getPayloadSize();
+							it = packet_cache.erase(it);
+						} else {
+							break;
+						}
+					}
+				} else {
+					next_expected = next_data->getSequenceNumber()+next_data->getPayloadSize();
+				}
+			} else if (next_data->getSequenceNumber() >= next_expected) {
+				insertion_sort(packet_cache, next_data);
+			}
 			
 			// Check for closed connection
 			if (next_data->FINbit())
 				break;
 			
 			// Send ack to client
-			Packet* ackn = new Packet(server_seqnum, next_data->getSequenceNumber()+next_data->getPayloadSize(), 1, 0, 0);
+			Packet* ackn = new Packet(server_seqnum, next_expected, 1, 0, 0);
 			ackn->printSend(0, 0, false);
 			if(ackn->sendPacket(socketfd) == -1){
 				exit(2);
