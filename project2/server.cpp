@@ -175,8 +175,11 @@ int main(int argc, char** argv){
 
 			// Write data to file
 			if (next_data->getSequenceNumber() == next_expected) {
+				// Write next data to file
 				outfile.write((char*)next_data->getData(), next_data->getPayloadSize());
 				next_expected = next_data->getSequenceNumber()+next_data->getPayloadSize();
+
+				// Check if there are other packets to write to file
 				if (packet_cache.size() > 0) {
 					std::vector<Packet*>::iterator it = packet_cache.begin();
 					while(it != packet_cache.end()) {
@@ -191,7 +194,8 @@ int main(int argc, char** argv){
 				} else {
 					next_expected = next_data->getSequenceNumber()+next_data->getPayloadSize();
 				}
-			} else if (next_data->getSequenceNumber() >= next_expected) {
+			} else if (next_data->getSequenceNumber() > next_expected) {
+				// If packet is not the right one, cache this packet until later
 				insertion_sort(packet_cache, next_data);
 			}
 			
