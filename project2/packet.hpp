@@ -35,6 +35,7 @@ public:
 	short loadData(int fd);
 	void printSend(int cwnd, int ssthresh, bool dup);
 	void printRecv(int cwnd, int ssthresh);
+	bool timeoutHit();
 private:
     // FORMAT OF header
     /*  [0-1] - sequence number
@@ -46,6 +47,7 @@ private:
 	byte* m_raw_data;
 	byte* m_data;
 	byte* m_header;
+	bool m_timeout;
 };
 
 #endif /* header_hpp */
