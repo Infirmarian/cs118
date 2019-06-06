@@ -44,19 +44,20 @@ static int mincwnd = 512;
 static int ssthresh = 5120;
 
 void* TransmitPackets(void* data){
-    std::queue<Packet*> queue = *((pthread_packet*)data)->queue;
+    std::queue<Packet*>* queue = ((pthread_packet*)data)->queue;
     int fd = ((pthread_packet*)data)->fd;
     while(1){
         mtx_outgoingQueue.lock();
-        if(!queue.empty()){
-            Packet* p = queue.front();
+        if(!queue->empty()){
+            Packet* p = queue->front();
             if(p->sendPacket(fd) == -1){
                 std::cerr<<"Unable to transmit packet: "<<strerror(errno)<<std::endl;
+                p->toString();
                 exit(2);
             }
             p->printSend(cwnd, ssthresh);
             p->setDuplicate();
-            queue.pop();
+            queue->pop();
             mtx_outgoingQueue.unlock();
         }else{
             mtx_outgoingQueue.unlock();
@@ -66,58 +67,74 @@ void* TransmitPackets(void* data){
 }
 
 void* ReceiveAcks(void* data){
-    std::queue<Packet*> queue = *((pthread_packet*)data)->queue;
+    std::queue<Packet*>* queue = ((pthread_packet*)data)->queue;
     int fd = ((pthread_packet*)data)->fd;
     while(1){
-        Packet* p = new Packet(fd, 0, 0);
+        Packet* p = new Packet(fd);
         mtx_ackReceivedQueue.lock();
-        queue.push(p);
+        queue->push(p);
         mtx_ackReceivedQueue.unlock();
+        usleep(100);
     }
 }
 
 void* RetransmissionHandle(void* data){
-    std::queue<Packet*> outgoingQueue = *((queue_cordination_packet*)data)->outgoingQueue;
-    std::queue<Packet*> incomingAcks = *((queue_cordination_packet*)data)->incomingAcks;
-    std::set<Packet*> inFlight = *((queue_cordination_packet*)data)->inflight;
+    std::queue<Packet*>* outgoingQueue = ((queue_cordination_packet*)data)->outgoingQueue;
+    std::queue<Packet*>* incomingAcks = ((queue_cordination_packet*)data)->incomingAcks;
+    std::set<Packet*>* inFlight = ((queue_cordination_packet*)data)->inflight;
     unsigned short highest_ack = MAX_SEQ + 1;
     unsigned short oldest_acked = MAX_SEQ + 1;
     while(1){
         // Go through the received queue and try to match with sent packets
         mtx_ackReceivedQueue.lock();
         bool ack_received = false;
-        while(!incomingAcks.empty()){
-            Packet* front = incomingAcks.front();
+        while(!incomingAcks->empty()){
+            Packet* front = incomingAcks->front();
             // Initialize to the first received ACK
             if(oldest_acked > MAX_SEQ){
                 oldest_acked = front->getAckNumber();
             }
             
             if(highest_ack != front->getAckNumber()){
-                highest_ack = front->getAckNumber();
+                if(highest_ack > MAX_SEQ){
+                    highest_ack = front->getAckNumber();
+                }
+                highest_ack += 512;
                 ack_received = true;
             }
             delete front;
-            incomingAcks.pop();
+            incomingAcks->pop();
         }
         mtx_ackReceivedQueue.unlock();
         
         // Retransmit packets if no ACK was received in the specified amount of time
-        if(!ack_received){
-            mtx_inflight.lock();
+        if(ack_received){
             while(highest_ack != oldest_acked){
-                for(std::set<Packet*>::iterator it = inFlight.begin(); it != inFlight.end(); it++){
-                    if((*it)->getExpectedAckNumber() == oldest_acked){
+                if(inFlight->empty())
+                    break;
+                mtx_inflight.lock();
+                for(std::set<Packet*>::iterator it = inFlight->begin(); it != inFlight->end(); it++){
+                    unsigned short num = (*it)->getExpectedAckNumber();
+                    if(num == oldest_acked){
                         oldest_acked = (*it)->getExpectedAckNumber() + (*it)->getPayloadSize();
                         // Clear out the packet
                         delete (*it);
-                        inFlight.erase(it);
+                        inFlight->erase(it);
                         break;
                     }
                 }
+                mtx_inflight.unlock();
             }
+        }else{
+            mtx_outgoingQueue.lock();
+            mtx_inflight.lock();
+            for(auto it = inFlight->begin(); it != inFlight->end(); it++){
+                outgoingQueue->push(*it);
+            }
+            mtx_outgoingQueue.unlock();
             mtx_inflight.unlock();
         }
+
         // Await to process more ACKs
         usleep(500000);
     }
@@ -130,6 +147,33 @@ void queue_packet(Packet* pack, std::queue<Packet*>* transmission_queue, std::se
     inflight->insert(pack);
     mtx_outgoingQueue.unlock();
     mtx_inflight.unlock();
+}
+
+Packet* blockAndAwaitIncomingAck(std::queue<Packet*>* queue){
+    while(1){
+        mtx_ackReceivedQueue.lock();
+        if(!queue->empty()){
+            Packet* p = queue->front();
+            queue->pop();
+            mtx_ackReceivedQueue.unlock();
+            return p;
+        }
+        mtx_ackReceivedQueue.unlock();
+        usleep(10);
+    }
+}
+
+Packet* clearFromInFlight(std::set<Packet*>* inflight, Packet* packet){
+    mtx_inflight.lock();
+    auto it = inflight->find(packet);
+    if(it == inflight->end()){
+        mtx_inflight.unlock();
+        return 0;
+    }
+    Packet* p = *it;
+    inflight->erase(it);
+    mtx_inflight.unlock();
+    return p;
 }
 
 int main(int argc, char** argv){
@@ -177,28 +221,41 @@ int main(int argc, char** argv){
       ////////////////////////////////////////
      ///////// Handle TCP setup /////////////
     ////////////////////////////////////////
+    
+    // Setup Multiple Threads to Send, Receive and Manage the two Queues
     std::queue<Packet*>* to_send = new std::queue<Packet*>();
+    std::queue<Packet*>* received_acks = new std::queue<Packet*>();
     std::set<Packet*>* inFlight = new std::set<Packet*>();
     pthread_packet* p = new pthread_packet();
     p->queue = to_send;
     p->fd = socketfd;
+    pthread_packet* rcv = new pthread_packet();
+    rcv->queue = received_acks;
+    rcv->fd = socketfd;
+    
+    queue_cordination_packet* qcp = new queue_cordination_packet();
+    qcp->incomingAcks = received_acks;
+    qcp->inflight = inFlight;
+    qcp->outgoingQueue = to_send;
+    
     pthread_t send_thread;
+    pthread_t receive_thread;
+    pthread_t queue_cordination;
     pthread_create(&send_thread, 0, TransmitPackets, p);
+    pthread_create(&receive_thread, 0, ReceiveAcks, rcv);
     
     // Generate a randomized initial sequence number
     std::srand(std::time(0));
-    int sequence_number = std::rand() % MAX_SEQ;
+    unsigned short sequence_number = (unsigned short)(std::rand() % MAX_SEQ);
     Packet* syn = new Packet(sequence_number, 0, false, true, false); // New packet with only the Syn bit sent
     
     // Send the SYN message to server, and await a response
-    to_send->push(syn);
-    inFlight->insert(syn);
-    
-    // Print send message
-    syn->printSend(cwnd, ssthresh);
+    queue_packet(syn, to_send, inFlight);
 
     // Receive ACK and print recv message
-    Packet* ack = new Packet(socketfd, 0, 0);
+    Packet* ack = blockAndAwaitIncomingAck(received_acks);
+    clearFromInFlight(inFlight, syn);
+    
     ack->printRecv(cwnd, ssthresh);
     
     // Check if the server accepted or rejected the connection
@@ -206,9 +263,9 @@ int main(int argc, char** argv){
         std::cerr<<"Server rejected the connection :/"<<std::endl;
         exit(3);
     }
+    delete syn;
     
     // Open the file to be tranmitted to the server!
-    // std::cout<<"Filename: "<<filename<<std::endl;
     int fd = open(filename, O_RDONLY);
     if(fd == -1){
         std::cerr<<"Unable to open provided file: "<<strerror(errno)<<std::endl;
@@ -221,8 +278,9 @@ int main(int argc, char** argv){
     int data_sent = 0;
     Packet* initial_data = new Packet(++sequence_number, ack->getSequenceNumber()+1, 1,0,0);
     data_sent += initial_data->loadData(fd);
-    to_send->push(initial_data);
-    inFlight->insert(initial_data);
+    queue_packet(initial_data, to_send, inFlight);
+
+
 
 
     // Set next sequence number
@@ -232,24 +290,14 @@ int main(int argc, char** argv){
         sequence_number += 512;
     }
 
-    // Initialize ACKed bytes variable
-    int acks_recv = 0;
-
-    // Initialize packets in the air counter (initially 1 because initial packet sent)
-    int packets_sent = 1;
-
-    // Flag to check if all packets ACKed
-    bool all_acked_flag = false;
-
     // ACK first packet
-    Packet* ackn = new Packet(socketfd, 0, 0);
-    acks_recv = ackn->getAckNumber();
-    ackn->printRecv(cwnd, ssthresh);
+    ack = blockAndAwaitIncomingAck(received_acks);
+    clearFromInFlight(inFlight, initial_data);
+    ack->printRecv(cwnd, ssthresh);
 
-    // Check if only one packet to send
-    if (data_sent >= file_size) {
-        all_acked_flag = true;
-    }
+    // Start joining the queue together
+    pthread_create(&queue_cordination, 0, RetransmissionHandle, qcp);
+    
     // TODO: should cwnd be increased on ACK of SYN?
     // SS / CA
     if (cwnd < ssthresh) {
@@ -257,68 +305,35 @@ int main(int argc, char** argv){
     } else {
         cwnd += (512 * 512) / cwnd;
     }
-
-    packets_sent--;
     
     // Continue data transmission
-    while (1) { 
-        // Receive new acks from server for each unacked packet
-        while (packets_sent > 0) {
-            Packet* ackn = new Packet(socketfd, 0, 0);
-            acks_recv = ackn->getAckNumber();
-            
-            ackn->printRecv(cwnd, ssthresh);
-            if (data_sent >= file_size && acks_recv >= sequence_number) {
-                all_acked_flag = true;
+    while (1) {
+        mtx_inflight.lock();
+        int inFlightCount = 512 * (int)inFlight->size();
+        mtx_inflight.unlock();
+        for(; inFlightCount<cwnd; inFlightCount += 512 ){
+            Packet* p = new Packet(sequence_number, ack->getSequenceNumber(), 0,0,0);
+            int incount = p->loadData(fd);
+            queue_packet(p, to_send, inFlight);
+            // Done reading in the file
+            if(incount < 512){
                 break;
             }
-            if (cwnd < 10240) {
-                if (cwnd < ssthresh) {
-                    cwnd += 512;
-                } else {
-                    cwnd += (512 * 512) / cwnd;
-                }
-            } else {
-                cwnd = 10240;
-            }
-            packets_sent--;
-            delete (ackn);
         }
-
-        // If the whole file has been sent and ACKed, break out of loop
-        if (all_acked_flag) {
-            break;
-        } 
-
-        // Send next packets
-        int window_limit = data_sent+cwnd;
-        while (data_sent < window_limit && data_sent < file_size) {
-            Packet* next_data = new Packet(sequence_number, ackn->getSequenceNumber()+1, 1,0,0);
-            data_sent += next_data->loadData(fd);
-            sequence_number += next_data->getPayloadSize();
-            if (sequence_number >= MAX_SEQ) {
-                sequence_number = 0;
-            }
-            next_data->sendPacket(socketfd);
-            // TODO: implement way to check if this is a duplicate packet
-            next_data->printSend(cwnd, ssthresh);
-            packets_sent++;
-        }
+        usleep(100);
     }
 
     // Teardown
-    if(data_sent >= file_size){
-        Packet* finpacket = new Packet(0,0,0,0,1);
-        finpacket->sendPacket(socketfd);
-        finpacket->printSend(cwnd, ssthresh);
-        
-        Packet* finack = new Packet(socketfd);
-        if (finack->timeoutHit()) {
-            close(socketfd);
-            exit(5);
-        }
-        finack->printRecv(cwnd, ssthresh);
+    Packet* finpacket = new Packet(0,0,0,0,1);
+    finpacket->sendPacket(socketfd);
+    finpacket->printSend(cwnd, ssthresh);
+    
+    Packet* finack = new Packet(socketfd);
+    if (finack->timeoutHit()) {
+        close(socketfd);
+        exit(5);
     }
+    finack->printRecv(cwnd, ssthresh);
 
     delete(syn);
     delete(ack);

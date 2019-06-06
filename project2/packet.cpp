@@ -44,13 +44,12 @@ Packet::Packet(short sequenceNumber, short ackNumber, bool ack, bool syn, bool f
     m_header[4] = flags;
     m_header[5] = m_header[6] = 0;
     m_timeout = false;
-    m_creation_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
     m_duplicate = false;
 
 }
 
 // Constructor to build a packet based on received data
-Packet::Packet(byte* data, short length){
+Packet::Packet(byte* data, unsigned short length){
     // Setup single data buffer
     m_raw_data = new byte[HEAD_LENGTH + DATA_LENGTH];
     m_header = m_raw_data;
@@ -60,10 +59,13 @@ Packet::Packet(byte* data, short length){
         std::cerr<<"Packet is too short to contain a header"<<std::endl;
         return;
     }
+    if(length > DATA_LENGTH + HEAD_LENGTH){
+        std::cerr<<"Packet is WAY too long!"<<std::endl;
+        assert(false);
+    }
     memcpy(m_header, data, HEAD_LENGTH);
     memcpy(m_data, data + HEAD_LENGTH, length - HEAD_LENGTH);
     m_timeout = false;
-    m_creation_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 
     m_duplicate = false;
 }
@@ -75,8 +77,8 @@ Packet::Packet(int socket){
     m_data = m_raw_data + HEAD_LENGTH;
 
     // Setup timout interval
-    struct timeval timeout={10,0};
-    setsockopt(socket,SOL_SOCKET,SO_RCVTIMEO,(char*)&timeout,sizeof(struct timeval));
+    //struct timeval timeout={10,0};
+    //setsockopt(socket,SOL_SOCKET,SO_RCVTIMEO,(char*)&timeout,sizeof(struct timeval));
 
     int rec_check = recv(socket, m_raw_data, HEAD_LENGTH + DATA_LENGTH, 0);
 
@@ -88,7 +90,6 @@ Packet::Packet(int socket){
     }else{
         m_timeout = false;
     }
-    m_creation_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
     m_duplicate = false;
 }
 
@@ -99,8 +100,8 @@ Packet::Packet(int socket, struct sockaddr* addr, socklen_t* len){
     m_data = m_raw_data + HEAD_LENGTH;
     
     // Setup timout interval
-    struct timeval timeout={10,0};
-    setsockopt(socket,SOL_SOCKET,SO_RCVTIMEO,(char*)&timeout,sizeof(struct timeval));
+    //struct timeval timeout={10,0};
+    //setsockopt(socket,SOL_SOCKET,SO_RCVTIMEO,(char*)&timeout,sizeof(struct timeval));
 
     int rec_check = recvfrom(socket, m_raw_data, HEAD_LENGTH+DATA_LENGTH, MSG_WAITALL, addr, len);
 
@@ -109,11 +110,14 @@ Packet::Packet(int socket, struct sockaddr* addr, socklen_t* len){
         m_timeout = true;
         close(socket);
         exit(5);
+    }else if(rec_check < 0){
+        std::cerr<<"Error with reading from socket: "<<strerror(errno)<<std::endl;
+        assert(false);
     }else{
         m_timeout = false;
     }
-    m_creation_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
     m_duplicate = false;
+    m_hasBeenAcked = false;
 
 }
 
@@ -123,20 +127,20 @@ Packet::~Packet(){
 }
 
 bool Packet::operator<(const Packet &other) const{
-    return this->m_creation_time < other.m_creation_time;
+    return this->getSequenceNumber() < other.getSequenceNumber();
 }
 
 
 // This function gets the sequence number from a header by
 // shifting and ORing the first two bytes in the m_data array
-short Packet::getSequenceNumber(){
+unsigned short Packet::getSequenceNumber() const{
     short data = (short)(m_header[0] << 8 | m_header[1]);
     return data % MAX_SEQ;
 }
 
 // This function gets the acknowledgement number from a header
 // by shifting and ORing the 3rd and 4th bytes of m_data
-short Packet::getAckNumber(){
+unsigned short Packet::getAckNumber(){
     short data = (short)(m_header[2] << 8 | m_header[3]);
     return data % MAX_SEQ;
 }
@@ -158,7 +162,7 @@ bool Packet::FINbit(){
     return fin;
 }
 
-short Packet::getPayloadSize(){
+unsigned short Packet::getPayloadSize(){
     short size = (short)(m_header[5] << 8 | m_header[6]);
     return size;
 }
@@ -170,7 +174,6 @@ byte* Packet::getData(){
 // This function uses the "send" function to transport the packet (header and all) over the specified socket
 // Return: 0 indicates successful tranmission of the packet, -1 indicates error, and errno is set
 int Packet::sendPacket(int socket){
-    m_creation_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
     if(send(socket, m_raw_data, HEAD_LENGTH + this->getPayloadSize(), 0) == -1){
         std::cerr<<"Unable to send packet: "<<strerror(errno)<<std::endl;
         return -1;
@@ -178,7 +181,6 @@ int Packet::sendPacket(int socket){
     return 0;
 }
 int Packet::sendPacket(int socket, struct sockaddr * addr, socklen_t len){
-    m_creation_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
     return (int) sendto(socket, m_raw_data, HEAD_LENGTH + this->getPayloadSize(), 0, addr, len);
 }
 
@@ -237,14 +239,18 @@ bool Packet::timeoutHit() {
     return m_timeout;
 }
 
-long long Packet::getCreationTime(){
-    return m_creation_time;
-}
-
 void Packet::setDuplicate(){
     m_duplicate = true;
 }
 
 short Packet::getExpectedAckNumber(){
     return this->getSequenceNumber() + this->getPayloadSize();
+}
+
+bool Packet::getHasBeenAcked(){
+    return m_hasBeenAcked;
+}
+
+void Packet::setHasBeenAcked(){
+    m_hasBeenAcked = true;
 }

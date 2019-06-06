@@ -18,16 +18,16 @@ typedef unsigned char byte;
 class Packet{
 public:
 	Packet(short sequenceNumber, short ackNumber, bool ack, bool syn, bool fin);
-	Packet(byte* data, short length);
+	Packet(byte* data, unsigned short length);
 	Packet(int socket);
 	Packet(int socket, struct sockaddr* addr, socklen_t* len);
 	~Packet();
-    short getSequenceNumber();
-    short getAckNumber();
+    unsigned short getSequenceNumber() const;
+    unsigned short getAckNumber();
 	bool ACKbit();
 	bool SYNbit();
 	bool FINbit();
-	short getPayloadSize();
+	unsigned short getPayloadSize();
 	byte* getData();
 	int sendPacket(int socket);
 	int sendPacket(int socket, struct sockaddr* addr, socklen_t len);
@@ -40,6 +40,8 @@ public:
 	long long getCreationTime();
 	void setDuplicate();
 	short getExpectedAckNumber();
+	void setHasBeenAcked();
+	bool getHasBeenAcked();
 	
 private:
     // FORMAT OF header
@@ -53,8 +55,8 @@ private:
 	byte* m_data;
 	byte* m_header;
 	bool m_timeout;
-	long long m_creation_time;
 	bool m_duplicate;
+	bool m_hasBeenAcked;
 };
 
 #endif /* header_hpp */
