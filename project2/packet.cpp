@@ -10,6 +10,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <sys/time.h>
+#include <chrono>
 
 #include "packet.hpp"
 
@@ -43,6 +44,7 @@ Packet::Packet(short sequenceNumber, short ackNumber, bool ack, bool syn, bool f
     m_header[4] = flags;
     m_header[5] = m_header[6] = 0;
     m_timeout = false;
+    m_creation_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 }
 
 // Constructor to build a packet based on received data
@@ -59,6 +61,8 @@ Packet::Packet(byte* data, short length){
     memcpy(m_header, data, HEAD_LENGTH);
     memcpy(m_data, data + HEAD_LENGTH, length - HEAD_LENGTH);
     m_timeout = false;
+    m_creation_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+
 }
 
 Packet::Packet(int socket){
@@ -68,15 +72,19 @@ Packet::Packet(int socket){
     m_data = m_raw_data + HEAD_LENGTH;
 
     // Setup timout interval
-    struct timeval timeout={10,0};
+    struct timeval timeout={1000,0};
     setsockopt(socket,SOL_SOCKET,SO_RCVTIMEO,(char*)&timeout,sizeof(struct timeval));
 
     int rec_check = recv(socket, m_raw_data, HEAD_LENGTH + DATA_LENGTH, 0);
 
-    if (rec_check < 0) {
+    if (rec_check == ETIMEDOUT) {
         std::cerr<<"Timout interval hit"<<std::endl;
         m_timeout = true;
+    }else{
+        m_timeout = false;
     }
+    m_creation_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+
 }
 
 Packet::Packet(int socket, struct sockaddr* addr, socklen_t* len){
@@ -86,20 +94,27 @@ Packet::Packet(int socket, struct sockaddr* addr, socklen_t* len){
     m_data = m_raw_data + HEAD_LENGTH;
     
     // Setup timout interval
-    struct timeval timeout={10,0};
+    struct timeval timeout={1000,0};
     setsockopt(socket,SOL_SOCKET,SO_RCVTIMEO,(char*)&timeout,sizeof(struct timeval));
 
     int rec_check = recvfrom(socket, m_raw_data, HEAD_LENGTH+DATA_LENGTH, MSG_WAITALL, addr, len);
 
-    if (rec_check < 0) {
+    if (rec_check == ETIMEDOUT) {
         std::cerr<<"Timout interval hit"<<std::endl;
         m_timeout = true;
+    }else{
+        m_timeout = false;
     }
+    m_creation_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 }
 
 // Destructor makes sure to free data members
 Packet::~Packet(){
     delete [] m_raw_data;
+}
+
+bool Packet::operator<(const Packet &other) const{
+    return this->m_creation_time < other.m_creation_time;
 }
 
 
@@ -146,6 +161,7 @@ byte* Packet::getData(){
 // This function uses the "send" function to transport the packet (header and all) over the specified socket
 // Return: 0 indicates successful tranmission of the packet, -1 indicates error, and errno is set
 int Packet::sendPacket(int socket){
+    m_creation_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
     if(send(socket, m_raw_data, HEAD_LENGTH + this->getPayloadSize(), 0) == -1){
         std::cerr<<"Unable to send packet: "<<strerror(errno)<<std::endl;
         return -1;
@@ -153,6 +169,7 @@ int Packet::sendPacket(int socket){
     return 0;
 }
 int Packet::sendPacket(int socket, struct sockaddr * addr, socklen_t len){
+    m_creation_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
     return (int) sendto(socket, m_raw_data, HEAD_LENGTH + this->getPayloadSize(), 0, addr, len);
 }
 
@@ -209,4 +226,8 @@ void Packet::printRecv(int cwnd, int ssthresh){
 
 bool Packet::timeoutHit() {
     return m_timeout;
+}
+
+long long Packet::getCreationTime(){
+    return m_creation_time;
 }

@@ -14,8 +14,17 @@
 #include <unistd.h>
 #include <cstdlib>
 #include <ctime>
+#include <set>
+#include <unordered_map>
+#include <chrono>
+#include <csignal>
 
 #include "packet.hpp"
+
+void timeout_handle(int sign){
+    std::cerr<<"\nTimer expired, need to retransmit packet!"<<std::endl;
+    exit(14);
+}
 
 int main(int argc, char** argv){
     int cwnd = 512;
@@ -62,6 +71,11 @@ int main(int argc, char** argv){
         exit(2);
     }
     
+    // Setup signal handler
+    if(std::signal(SIGALRM, timeout_handle) == SIG_ERR){
+        std::cerr<<"Unable to set signal handler: "<<strerror(errno)<<std::endl;
+    }
+    
       ////////////////////////////////////////
      ///////// Handle TCP setup /////////////
     ////////////////////////////////////////
@@ -83,7 +97,7 @@ int main(int argc, char** argv){
     Packet* ack = new Packet(socketfd, 0, 0);
     if (ack->timeoutHit()) {
         close(socketfd);
-        exit(2);
+        exit(5);
     }
     ack->printRecv(cwnd, ssthresh);
     
@@ -133,7 +147,7 @@ int main(int argc, char** argv){
     Packet* ackn = new Packet(socketfd, 0, 0);
     if (ackn->timeoutHit()) {
         close(socketfd);
-        exit(2);
+        exit(5);
     }
     acks_recv = ackn->getAckNumber();
     ackn->printRecv(cwnd, ssthresh);
@@ -151,7 +165,9 @@ int main(int argc, char** argv){
     }
 
     packets_sent--;
-
+    
+    std::set<Packet*> inFlight;
+    std::unordered_map<int, Packet*> inFlightHash;
     // Continue data transmission
     while (1) { 
         // Receive new acks from server for each unacked packet
@@ -159,9 +175,31 @@ int main(int argc, char** argv){
             Packet* ackn = new Packet(socketfd, 0, 0);
             if (ackn->timeoutHit()) {
                 close(socketfd);
-                exit(2);
+                exit(5);
             }
             acks_recv = ackn->getAckNumber();
+            /*
+            auto sent = inFlightHash.find(acks_recv);
+            if(sent == inFlightHash.end()){
+                std::cerr<<"Retrieved packet not in sent map!"<<std::endl;
+            }
+            if(*(inFlight.begin()) == sent->second){
+                Packet* second = *std::next(inFlight.begin(), 1);
+                if(second == *(inFlight.end())){
+                    ualarm(0,0); // Reset the alarm
+                }else{
+                    inFlight.erase(sent->second);
+                    long long time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count() - second->getCreationTime();
+                    if(time >= 500000){
+                        time = 450000;
+                    }
+                    ualarm(500000 - time, 500000);
+                    inFlightHash.erase(acks_recv);
+                }
+            }*/
+            ualarm(500000, 500000);
+            
+            
             ackn->printRecv(cwnd, ssthresh);
             if (data_sent >= file_size && acks_recv >= sequence_number) {
                 all_acked_flag = true;
@@ -177,6 +215,7 @@ int main(int argc, char** argv){
                 cwnd = 10240;
             }
             packets_sent--;
+            delete (ackn);
         }
 
         // If the whole file has been sent and ACKed, break out of loop
@@ -190,6 +229,12 @@ int main(int argc, char** argv){
             Packet* next_data = new Packet(sequence_number, ackn->getSequenceNumber()+1, 1,0,0);
             data_sent += next_data->loadData(fd);
             sequence_number += next_data->getPayloadSize();
+            // Set an alarm to go off every 0.5 seconds
+            if(inFlight.size() == 0){
+                ualarm(500000, 500000);
+            }
+            inFlight.insert(next_data);
+            inFlightHash.insert(std::pair<int, Packet*>((next_data->getSequenceNumber()+next_data->getPayloadSize()) % MAX_SEQ, next_data));
             if (sequence_number >= MAX_SEQ) {
                 sequence_number = 0;
             }
@@ -209,7 +254,7 @@ int main(int argc, char** argv){
         Packet* finack = new Packet(socketfd);
         if (finack->timeoutHit()) {
             close(socketfd);
-            exit(2);
+            exit(5);
         }
         finack->printRecv(cwnd, ssthresh);
     }

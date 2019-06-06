@@ -36,6 +36,8 @@ public:
 	void printSend(int cwnd, int ssthresh, bool dup);
 	void printRecv(int cwnd, int ssthresh);
 	bool timeoutHit();
+	bool operator<(const Packet& other) const;
+	long long getCreationTime();
 private:
     // FORMAT OF header
     /*  [0-1] - sequence number
@@ -48,6 +50,7 @@ private:
 	byte* m_data;
 	byte* m_header;
 	bool m_timeout;
+	long long m_creation_time;
 };
 
 #endif /* header_hpp */
