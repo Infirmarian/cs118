@@ -45,6 +45,8 @@ Packet::Packet(short sequenceNumber, short ackNumber, bool ack, bool syn, bool f
     m_header[5] = m_header[6] = 0;
     m_timeout = false;
     m_creation_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+    m_duplicate = false;
+
 }
 
 // Constructor to build a packet based on received data
@@ -63,6 +65,7 @@ Packet::Packet(byte* data, short length){
     m_timeout = false;
     m_creation_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 
+    m_duplicate = false;
 }
 
 Packet::Packet(int socket){
@@ -72,7 +75,7 @@ Packet::Packet(int socket){
     m_data = m_raw_data + HEAD_LENGTH;
 
     // Setup timout interval
-    struct timeval timeout={1000,0};
+    struct timeval timeout={10,0};
     setsockopt(socket,SOL_SOCKET,SO_RCVTIMEO,(char*)&timeout,sizeof(struct timeval));
 
     int rec_check = recv(socket, m_raw_data, HEAD_LENGTH + DATA_LENGTH, 0);
@@ -80,11 +83,13 @@ Packet::Packet(int socket){
     if (rec_check == ETIMEDOUT) {
         std::cerr<<"Timout interval hit"<<std::endl;
         m_timeout = true;
+        close(socket);
+        exit(5);
     }else{
         m_timeout = false;
     }
     m_creation_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-
+    m_duplicate = false;
 }
 
 Packet::Packet(int socket, struct sockaddr* addr, socklen_t* len){
@@ -94,7 +99,7 @@ Packet::Packet(int socket, struct sockaddr* addr, socklen_t* len){
     m_data = m_raw_data + HEAD_LENGTH;
     
     // Setup timout interval
-    struct timeval timeout={1000,0};
+    struct timeval timeout={10,0};
     setsockopt(socket,SOL_SOCKET,SO_RCVTIMEO,(char*)&timeout,sizeof(struct timeval));
 
     int rec_check = recvfrom(socket, m_raw_data, HEAD_LENGTH+DATA_LENGTH, MSG_WAITALL, addr, len);
@@ -102,10 +107,14 @@ Packet::Packet(int socket, struct sockaddr* addr, socklen_t* len){
     if (rec_check == ETIMEDOUT) {
         std::cerr<<"Timout interval hit"<<std::endl;
         m_timeout = true;
+        close(socket);
+        exit(5);
     }else{
         m_timeout = false;
     }
     m_creation_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+    m_duplicate = false;
+
 }
 
 // Destructor makes sure to free data members
@@ -192,7 +201,7 @@ void Packet::toString(){
 }
 
 // Print a packet message that was sent from caller
-void Packet::printSend(int cwnd, int ssthresh, bool dup){
+void Packet::printSend(int cwnd, int ssthresh){
     std::cout<<"SEND "<<getSequenceNumber()<<" "<<getAckNumber()<< " "<<cwnd<<" "<<ssthresh;
     if (ACKbit()) {
         std::cout<<" [ACK]";
@@ -203,7 +212,7 @@ void Packet::printSend(int cwnd, int ssthresh, bool dup){
     if (FINbit()) {
         std::cout<<" [FIN]";
     }
-    if (dup) {
+    if (this->m_duplicate) {
         std::cout<<" [DUP]";
     }
     std::cout<<std::endl;
@@ -230,4 +239,12 @@ bool Packet::timeoutHit() {
 
 long long Packet::getCreationTime(){
     return m_creation_time;
+}
+
+void Packet::setDuplicate(){
+    m_duplicate = true;
+}
+
+short Packet::getExpectedAckNumber(){
+    return this->getSequenceNumber() + this->getPayloadSize();
 }

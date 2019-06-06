@@ -119,7 +119,7 @@ int main(int argc, char** argv){
     	int server_seqnum = std::rand() % MAX_SEQ;
 		// SYNACK message (handshake part II)
 		Packet* ack = new Packet(server_seqnum, p->getSequenceNumber()+1, 1, 1, 0);
-		ack->printSend(0, 0, false);
+		ack->printSend(0, 0);
 		server_seqnum++;
 		if (server_seqnum >= MAX_SEQ) {
 			server_seqnum = 0;
@@ -154,7 +154,7 @@ int main(int argc, char** argv){
 			
 			// Send ack to client
 			Packet* ackn = new Packet(server_seqnum, next_data->getSequenceNumber()+next_data->getPayloadSize(), 1, 0, 0);
-			ackn->printSend(0, 0, false);
+			ackn->printSend(0, 0);
 			if(ackn->sendPacket(socketfd) == -1){
 				exit(2);
 			}
@@ -163,7 +163,7 @@ int main(int argc, char** argv){
 		if (!timeout_occurs) {
 			Packet* finpacket = new Packet(0,0,0,0,1);
 			finpacket->sendPacket(socketfd);
-			finpacket->printSend(0, 0, false);
+			finpacket->printSend(0, 0);
 		}
 		
 		outfile.close();

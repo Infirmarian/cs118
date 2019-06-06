@@ -33,11 +33,14 @@ public:
 	int sendPacket(int socket, struct sockaddr* addr, socklen_t len);
 	void toString();
 	short loadData(int fd);
-	void printSend(int cwnd, int ssthresh, bool dup);
+	void printSend(int cwnd, int ssthresh);
 	void printRecv(int cwnd, int ssthresh);
 	bool timeoutHit();
 	bool operator<(const Packet& other) const;
 	long long getCreationTime();
+	void setDuplicate();
+	short getExpectedAckNumber();
+	
 private:
     // FORMAT OF header
     /*  [0-1] - sequence number
@@ -51,6 +54,7 @@ private:
 	byte* m_header;
 	bool m_timeout;
 	long long m_creation_time;
+	bool m_duplicate;
 };
 
 #endif /* header_hpp */

@@ -18,19 +18,121 @@
 #include <unordered_map>
 #include <chrono>
 #include <csignal>
+#include <pthread.h>
+#include <queue>
+#include <mutex>
 
 #include "packet.hpp"
 
-void timeout_handle(int sign){
-    std::cerr<<"\nTimer expired, need to retransmit packet!"<<std::endl;
-    exit(14);
+std::mutex mtx_outgoingQueue;
+std::mutex mtx_ackReceivedQueue;
+std::mutex mtx_inflight;
+
+struct pthread_packet{
+    std::queue<Packet*>* queue;
+    int fd;
+};
+
+struct queue_cordination_packet{
+    std::queue<Packet*>* outgoingQueue;
+    std::queue<Packet*>* incomingAcks;
+    std::set<Packet*>* inflight;
+};
+
+static int cwnd = 512;
+static int mincwnd = 512;
+static int ssthresh = 5120;
+
+void* TransmitPackets(void* data){
+    std::queue<Packet*> queue = *((pthread_packet*)data)->queue;
+    int fd = ((pthread_packet*)data)->fd;
+    while(1){
+        mtx_outgoingQueue.lock();
+        if(!queue.empty()){
+            Packet* p = queue.front();
+            if(p->sendPacket(fd) == -1){
+                std::cerr<<"Unable to transmit packet: "<<strerror(errno)<<std::endl;
+                exit(2);
+            }
+            p->printSend(cwnd, ssthresh);
+            p->setDuplicate();
+            queue.pop();
+            mtx_outgoingQueue.unlock();
+        }else{
+            mtx_outgoingQueue.unlock();
+            usleep(100);
+        }
+    }
+}
+
+void* ReceiveAcks(void* data){
+    std::queue<Packet*> queue = *((pthread_packet*)data)->queue;
+    int fd = ((pthread_packet*)data)->fd;
+    while(1){
+        Packet* p = new Packet(fd, 0, 0);
+        mtx_ackReceivedQueue.lock();
+        queue.push(p);
+        mtx_ackReceivedQueue.unlock();
+    }
+}
+
+void* RetransmissionHandle(void* data){
+    std::queue<Packet*> outgoingQueue = *((queue_cordination_packet*)data)->outgoingQueue;
+    std::queue<Packet*> incomingAcks = *((queue_cordination_packet*)data)->incomingAcks;
+    std::set<Packet*> inFlight = *((queue_cordination_packet*)data)->inflight;
+    unsigned short highest_ack = MAX_SEQ + 1;
+    unsigned short oldest_acked = MAX_SEQ + 1;
+    while(1){
+        // Go through the received queue and try to match with sent packets
+        mtx_ackReceivedQueue.lock();
+        bool ack_received = false;
+        while(!incomingAcks.empty()){
+            Packet* front = incomingAcks.front();
+            // Initialize to the first received ACK
+            if(oldest_acked > MAX_SEQ){
+                oldest_acked = front->getAckNumber();
+            }
+            
+            if(highest_ack != front->getAckNumber()){
+                highest_ack = front->getAckNumber();
+                ack_received = true;
+            }
+            delete front;
+            incomingAcks.pop();
+        }
+        mtx_ackReceivedQueue.unlock();
+        
+        // Retransmit packets if no ACK was received in the specified amount of time
+        if(!ack_received){
+            mtx_inflight.lock();
+            while(highest_ack != oldest_acked){
+                for(std::set<Packet*>::iterator it = inFlight.begin(); it != inFlight.end(); it++){
+                    if((*it)->getExpectedAckNumber() == oldest_acked){
+                        oldest_acked = (*it)->getExpectedAckNumber() + (*it)->getPayloadSize();
+                        // Clear out the packet
+                        delete (*it);
+                        inFlight.erase(it);
+                        break;
+                    }
+                }
+            }
+            mtx_inflight.unlock();
+        }
+        // Await to process more ACKs
+        usleep(500000);
+    }
+}
+
+void queue_packet(Packet* pack, std::queue<Packet*>* transmission_queue, std::set<Packet*>* inflight){
+    mtx_outgoingQueue.lock();
+    mtx_inflight.lock();
+    transmission_queue->push(pack);
+    inflight->insert(pack);
+    mtx_outgoingQueue.unlock();
+    mtx_inflight.unlock();
 }
 
 int main(int argc, char** argv){
-    int cwnd = 512;
-    int mincwnd = 512;
-    int ssthresh = 5120;
-    
     if(argc != 4){
         std::cerr<<"Bad arguments, expected \n./client [HOSTNAME] [PORT] [FILENAME]"<<std::endl;
         exit(1);
@@ -70,15 +172,18 @@ int main(int argc, char** argv){
         std::cerr<<"Failed to connect to server"<<std::endl;
         exit(2);
     }
-    
-    // Setup signal handler
-    if(std::signal(SIGALRM, timeout_handle) == SIG_ERR){
-        std::cerr<<"Unable to set signal handler: "<<strerror(errno)<<std::endl;
-    }
+
     
       ////////////////////////////////////////
      ///////// Handle TCP setup /////////////
     ////////////////////////////////////////
+    std::queue<Packet*>* to_send = new std::queue<Packet*>();
+    std::set<Packet*>* inFlight = new std::set<Packet*>();
+    pthread_packet* p = new pthread_packet();
+    p->queue = to_send;
+    p->fd = socketfd;
+    pthread_t send_thread;
+    pthread_create(&send_thread, 0, TransmitPackets, p);
     
     // Generate a randomized initial sequence number
     std::srand(std::time(0));
@@ -86,19 +191,14 @@ int main(int argc, char** argv){
     Packet* syn = new Packet(sequence_number, 0, false, true, false); // New packet with only the Syn bit sent
     
     // Send the SYN message to server, and await a response
-    if(syn->sendPacket(socketfd) == -1){
-        std::cerr<<"Failed to send initial SYN bit packet: "<<strerror(errno)<<std::endl;
-        exit(2);
-    }
+    to_send->push(syn);
+    inFlight->insert(syn);
+    
     // Print send message
-    syn->printSend(cwnd, ssthresh, false);
+    syn->printSend(cwnd, ssthresh);
 
     // Receive ACK and print recv message
     Packet* ack = new Packet(socketfd, 0, 0);
-    if (ack->timeoutHit()) {
-        close(socketfd);
-        exit(5);
-    }
     ack->printRecv(cwnd, ssthresh);
     
     // Check if the server accepted or rejected the connection
@@ -121,11 +221,9 @@ int main(int argc, char** argv){
     int data_sent = 0;
     Packet* initial_data = new Packet(++sequence_number, ack->getSequenceNumber()+1, 1,0,0);
     data_sent += initial_data->loadData(fd);
-    initial_data->sendPacket(socketfd);
+    to_send->push(initial_data);
+    inFlight->insert(initial_data);
 
-    // TODO: increase CWND before print???
-    // Print send message
-    initial_data->printSend(cwnd, ssthresh, false);
 
     // Set next sequence number
     if (file_size < 512) {
@@ -145,10 +243,6 @@ int main(int argc, char** argv){
 
     // ACK first packet
     Packet* ackn = new Packet(socketfd, 0, 0);
-    if (ackn->timeoutHit()) {
-        close(socketfd);
-        exit(5);
-    }
     acks_recv = ackn->getAckNumber();
     ackn->printRecv(cwnd, ssthresh);
 
@@ -166,39 +260,12 @@ int main(int argc, char** argv){
 
     packets_sent--;
     
-    std::set<Packet*> inFlight;
-    std::unordered_map<int, Packet*> inFlightHash;
     // Continue data transmission
     while (1) { 
         // Receive new acks from server for each unacked packet
         while (packets_sent > 0) {
             Packet* ackn = new Packet(socketfd, 0, 0);
-            if (ackn->timeoutHit()) {
-                close(socketfd);
-                exit(5);
-            }
             acks_recv = ackn->getAckNumber();
-            /*
-            auto sent = inFlightHash.find(acks_recv);
-            if(sent == inFlightHash.end()){
-                std::cerr<<"Retrieved packet not in sent map!"<<std::endl;
-            }
-            if(*(inFlight.begin()) == sent->second){
-                Packet* second = *std::next(inFlight.begin(), 1);
-                if(second == *(inFlight.end())){
-                    ualarm(0,0); // Reset the alarm
-                }else{
-                    inFlight.erase(sent->second);
-                    long long time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count() - second->getCreationTime();
-                    if(time >= 500000){
-                        time = 450000;
-                    }
-                    ualarm(500000 - time, 500000);
-                    inFlightHash.erase(acks_recv);
-                }
-            }*/
-            ualarm(500000, 500000);
-            
             
             ackn->printRecv(cwnd, ssthresh);
             if (data_sent >= file_size && acks_recv >= sequence_number) {
@@ -229,18 +296,12 @@ int main(int argc, char** argv){
             Packet* next_data = new Packet(sequence_number, ackn->getSequenceNumber()+1, 1,0,0);
             data_sent += next_data->loadData(fd);
             sequence_number += next_data->getPayloadSize();
-            // Set an alarm to go off every 0.5 seconds
-            if(inFlight.size() == 0){
-                ualarm(500000, 500000);
-            }
-            inFlight.insert(next_data);
-            inFlightHash.insert(std::pair<int, Packet*>((next_data->getSequenceNumber()+next_data->getPayloadSize()) % MAX_SEQ, next_data));
             if (sequence_number >= MAX_SEQ) {
                 sequence_number = 0;
             }
             next_data->sendPacket(socketfd);
             // TODO: implement way to check if this is a duplicate packet
-            next_data->printSend(cwnd, ssthresh, false);
+            next_data->printSend(cwnd, ssthresh);
             packets_sent++;
         }
     }
@@ -249,7 +310,7 @@ int main(int argc, char** argv){
     if(data_sent >= file_size){
         Packet* finpacket = new Packet(0,0,0,0,1);
         finpacket->sendPacket(socketfd);
-        finpacket->printSend(cwnd, ssthresh, false);
+        finpacket->printSend(cwnd, ssthresh);
         
         Packet* finack = new Packet(socketfd);
         if (finack->timeoutHit()) {
