@@ -11,7 +11,7 @@ server: server.o packet.o
 	$(CC) $(FLAGS) server.o packet.o -o server
 
 client.o: client.cpp
-	$(CC) $(FLAGS) -c client.cpp
+	$(CC) $(FLAGS) -pthread -c client.cpp
 server.o: server.cpp
 	$(CC) $(FLAGS) -c server.cpp
 packet.o: packet.cpp
