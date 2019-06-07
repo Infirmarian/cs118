@@ -1,10 +1,4 @@
 TODO:
 	- last priority: extra credit FR protocol
 	- check other todo comments in code
-	- 0.5 sec retransmission timer
-		- retransmit packet after last ACKed packet
-		- change cwnd and ssthresh upon timeout
-		- set DUP flag when calling send print
-		- update sequence number to highest ACKed packet after retransmission
 	- 2 second close timer for client
-	- clean up all new packets using delete
