@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <chrono>
+#include <cerrno>
 
 #include "packet.hpp"
 
@@ -82,11 +83,9 @@ Packet::Packet(int socket){
 
     int rec_check = recv(socket, m_raw_data, HEAD_LENGTH + DATA_LENGTH, 0);
 
-    if (rec_check == ETIMEDOUT) {
+    if (rec_check < 0) {
         std::cerr<<"Timout interval hit"<<std::endl;
         m_timeout = true;
-        close(socket);
-        exit(5);
     }else{
         m_timeout = false;
     }
@@ -100,16 +99,14 @@ Packet::Packet(int socket, struct sockaddr* addr, socklen_t* len){
     m_data = m_raw_data + HEAD_LENGTH;
     
     // Setup timout interval
-    //struct timeval timeout={10,0};
-    //setsockopt(socket,SOL_SOCKET,SO_RCVTIMEO,(char*)&timeout,sizeof(struct timeval));
+    struct timeval timeout={10,0};
+    setsockopt(socket,SOL_SOCKET,SO_RCVTIMEO,(char*)&timeout,sizeof(struct timeval));
 
     int rec_check = recvfrom(socket, m_raw_data, HEAD_LENGTH+DATA_LENGTH, MSG_WAITALL, addr, len);
 
-    if (rec_check == ETIMEDOUT) {
+    if (rec_check < 0 && errno == ETIMEDOUT) {
         std::cerr<<"Timout interval hit"<<std::endl;
         m_timeout = true;
-        close(socket);
-        exit(5);
     }else if(rec_check < 0){
         std::cerr<<"Error with reading from socket: "<<strerror(errno)<<std::endl;
         assert(false);
