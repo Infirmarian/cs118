@@ -35,6 +35,8 @@ std::mutex mtx_ackReceivedQueue;
 std::mutex mtx_inflight;
 std::mutex mtx_printlock;
 bool finished_transmission = false;
+int socketfd;
+int fd;
 
 struct pthread_packet{
     std::queue<Packet*>* queue;
@@ -82,7 +84,9 @@ void* ReceiveAcks(void* data){
         Packet* p = new Packet(fd);
         if(p->timeoutHit()){
             delete p;
-            continue;
+            close(socketfd);
+            close(fd);
+            exit(5);
         }
         mtx_printlock.lock();
         if(p->FINbit()){
@@ -220,7 +224,7 @@ int main(int argc, char** argv){
     char *filename = argv[3];
 
     // Create the socket file descriptor
-    int socketfd = socket(AF_INET, SOCK_DGRAM, 0);
+    socketfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (socketfd < 0) {
         std::cerr<<"Could not create socket"<<std::endl;
         exit(2);
@@ -294,7 +298,7 @@ int main(int argc, char** argv){
     delete syn;
     
     // Open the file to be tranmitted to the server!
-    int fd = open(filename, O_RDONLY);
+    fd = open(filename, O_RDONLY);
     if(fd == -1){
         std::cerr<<"Unable to open provided file: "<<strerror(errno)<<std::endl;
         exit(2);
