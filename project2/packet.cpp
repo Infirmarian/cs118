@@ -77,8 +77,8 @@ Packet::Packet(int socket){
     m_data = m_raw_data + HEAD_LENGTH;
 
     // Setup timout interval
-    //struct timeval timeout={10,0};
-    //setsockopt(socket,SOL_SOCKET,SO_RCVTIMEO,(char*)&timeout,sizeof(struct timeval));
+    struct timeval timeout={10,0};
+    setsockopt(socket,SOL_SOCKET,SO_RCVTIMEO,(char*)&timeout,sizeof(struct timeval));
 
     int rec_check = recv(socket, m_raw_data, HEAD_LENGTH + DATA_LENGTH, 0);
 

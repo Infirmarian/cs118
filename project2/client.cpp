@@ -7,6 +7,7 @@
 //
 
 #include <iostream>
+#include <algorithm>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -26,9 +27,12 @@
 
 #include "packet.hpp"
 
+#define MAX_CWND 10240
+
 std::mutex mtx_outgoingQueue;
 std::mutex mtx_ackReceivedQueue;
 std::mutex mtx_inflight;
+std::mutex mtx_printlock;
 bool finished_transmission = false;
 
 struct pthread_packet{
@@ -43,7 +47,6 @@ struct queue_cordination_packet{
 };
 
 static int cwnd = 512;
-static int mincwnd = 512;
 static int ssthresh = 5120;
 
 void* TransmitPackets(void* data){
@@ -55,10 +58,11 @@ void* TransmitPackets(void* data){
             Packet* p = queue->front();
             if(p->sendPacket(fd) == -1){
                 std::cerr<<"Unable to transmit packet: "<<strerror(errno)<<std::endl;
-                p->toString();
                 exit(2);
             }
+            mtx_printlock.lock();
             p->printSend(cwnd, ssthresh);
+            mtx_printlock.unlock();
             p->setDuplicate();
             queue->pop();
             mtx_outgoingQueue.unlock();
@@ -73,8 +77,14 @@ void* TransmitPackets(void* data){
 void* ReceiveAcks(void* data){
     std::queue<Packet*>* queue = ((pthread_packet*)data)->queue;
     int fd = ((pthread_packet*)data)->fd;
-    while(!finished_transmission){
+    while(1){
         Packet* p = new Packet(fd);
+        mtx_printlock.lock();
+        p->printRecv(cwnd, ssthresh);
+        mtx_printlock.unlock();
+        if(p->FINbit()){
+            break;
+        }
         mtx_ackReceivedQueue.lock();
         queue->push(p);
         mtx_ackReceivedQueue.unlock();
@@ -87,10 +97,11 @@ void* RetransmissionHandle(void* data){
     std::queue<Packet*>* outgoingQueue = ((queue_cordination_packet*)data)->outgoingQueue;
     std::queue<Packet*>* incomingAcks = ((queue_cordination_packet*)data)->incomingAcks;
     std::unordered_map<unsigned short, Packet*>* inFlight = ((queue_cordination_packet*)data)->inflight;
+    int counter = 0;
     while(!finished_transmission){
         // Await to process more ACKs
-        usleep(500000);
-        
+        usleep(200);
+        counter += 200;
         // Go through the received queue and try to match with sent packets
         mtx_ackReceivedQueue.lock();
         bool ack_received = false;
@@ -106,6 +117,8 @@ void* RetransmissionHandle(void* data){
         
         // Retransmit packets if no ACK was received in the specified amount of time
         if(ack_received){
+            counter = 0;
+            int acks_gotten = 0;
             mtx_inflight.lock();
             for(auto it = ackedPacketNumbers.begin(); it != ackedPacketNumbers.end(); it++){
                 unsigned short i = *it;
@@ -114,17 +127,30 @@ void* RetransmissionHandle(void* data){
                     delete foundVal->second;
                     inFlight->erase(foundVal);
                     i -= 512;
+                    acks_gotten ++;
                 }
             }
+            // LOGIC FOR INCREASING THE WINDOW SIZE!
+            for(int i = 0; i<acks_gotten; i++){
+                if(cwnd < ssthresh){
+                    cwnd += 512;
+                }else{
+                    cwnd += 512*512 / cwnd;
+                }
+            }
+            if(cwnd > MAX_CWND){
+                cwnd = MAX_CWND;
+            }
             mtx_inflight.unlock();
-        }else{
+        }else if(counter> 500000){
             mtx_outgoingQueue.lock();
             mtx_inflight.lock();
             for(auto it = inFlight->begin(); it != inFlight->end(); it++){
-                //outgoingQueue->push(it->second);
+                outgoingQueue->push(it->second);
             }
             mtx_outgoingQueue.unlock();
             mtx_inflight.unlock();
+            counter = 0;
         }
     }
     return 0;
@@ -317,7 +343,7 @@ int main(int argc, char** argv){
         if(finished_reading){
             break;
         }
-        usleep(10000);
+        usleep(10);
     }
 
     // Teardown
@@ -326,12 +352,10 @@ int main(int argc, char** argv){
     // Join threads
     pthread_join(queue_cordination,0);
     pthread_join(send_thread, 0);
-    pthread_join(receive_thread, 0);
     
     finpacket->sendPacket(socketfd);
     finpacket->printSend(cwnd, ssthresh);
-    Packet* fin = new Packet(socketfd);
-    fin->printRecv(cwnd, ssthresh);
+    pthread_join(receive_thread, 0);
 
     close(fd);
     close(socketfd);
