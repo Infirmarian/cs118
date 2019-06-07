@@ -6,5 +6,5 @@ TODO:
 		- change cwnd and ssthresh upon timeout
 		- set DUP flag when calling send print
 		- update sequence number to highest ACKed packet after retransmission
-		- make sure server saves file correctly upon retransmission (does the server discard future packets after dropped packet??)
 	- 2 second close timer for client
+	- clean up all new packets using delete
