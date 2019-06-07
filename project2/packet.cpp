@@ -71,14 +71,18 @@ Packet::Packet(byte* data, unsigned short length){
     m_duplicate = false;
 }
 
-Packet::Packet(int socket){
+Packet::Packet(int socket, bool fin){
     // Setup single data buffer
     m_raw_data = new byte[HEAD_LENGTH + DATA_LENGTH];
     m_header = m_raw_data;
     m_data = m_raw_data + HEAD_LENGTH;
 
     // Setup timout interval
-    struct timeval timeout={10,0};
+    struct timeval timeout;
+    if (fin)
+        timeout = {2,0};
+    else 
+        timeout = {10,0};
     setsockopt(socket,SOL_SOCKET,SO_RCVTIMEO,(char*)&timeout,sizeof(struct timeval));
 
     int rec_check = recv(socket, m_raw_data, HEAD_LENGTH + DATA_LENGTH, 0);

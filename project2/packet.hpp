@@ -19,7 +19,7 @@ class Packet{
 public:
 	Packet(short sequenceNumber, short ackNumber, bool ack, bool syn, bool fin);
 	Packet(byte* data, unsigned short length);
-	Packet(int socket);
+	Packet(int socket, bool fin);
 	Packet(int socket, struct sockaddr* addr, socklen_t* len);
 	~Packet();
     unsigned short getSequenceNumber() const;

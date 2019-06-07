@@ -148,7 +148,7 @@ int main(int argc, char** argv){
 		// Listen for next packets
 		while(1) {
 			// Listen for next packet
-			Packet* next_data = new Packet(socketfd);
+			Packet* next_data = new Packet(socketfd, false);
 			if (next_data->timeoutHit()) {
 				timeout_occurs = true;
 				break;

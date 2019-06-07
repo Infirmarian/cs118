@@ -80,8 +80,11 @@ void* TransmitPackets(void* data){
 void* ReceiveAcks(void* data){
     std::queue<Packet*>* queue = ((pthread_packet*)data)->queue;
     int fd = ((pthread_packet*)data)->fd;
+    bool fin = false;
     while(1){
-        Packet* p = new Packet(fd);
+        if (finished_transmission)
+            fin = true;
+        Packet* p = new Packet(fd, fin);
         if(p->timeoutHit()){
             delete p;
             close(socketfd);
