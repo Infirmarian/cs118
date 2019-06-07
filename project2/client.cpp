@@ -53,7 +53,7 @@ static int ssthresh = 5120;
 void* TransmitPackets(void* data){
     std::queue<Packet*>* queue = ((pthread_packet*)data)->queue;
     int fd = ((pthread_packet*)data)->fd;
-    while(!finished_transmission){
+    while(!finished_transmission || !queue->empty()){
         mtx_outgoingQueue.lock();
         if(!queue->empty()){
             Packet* p = queue->front();
