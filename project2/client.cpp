@@ -28,7 +28,7 @@
 #include "packet.hpp"
 
 #define MAX_CWND 10240
-#define TIMEOUT 50000000
+#define TIMEOUT 500000
 
 std::mutex mtx_outgoingQueue;
 std::mutex mtx_ackReceivedQueue;
