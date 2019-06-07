@@ -17,6 +17,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <vector>
+#include <unordered_map>
 
 #include "packet.hpp"
 
@@ -58,12 +59,16 @@ void insertion_sort(std::vector<Packet*> &packet_cache, Packet* new_packet) {
 	}
 }
 
+
 int main(int argc, char** argv){
     // Make sure arguments are valid
     if(argc != 2){
         std::cerr<<"Bad arguments, expected \n./server [PORT]"<<std::endl;
         exit(1);
     }
+	// Set random values
+	std::srand(std::time(0));
+
     // Set the port number
     int port = atoi(argv[1]);
     if(port <= 0){
@@ -137,7 +142,6 @@ int main(int argc, char** argv){
 		}
 		
 		// Setting up a new connection
-		std::srand(std::time(0));
     	int server_seqnum = std::rand() % MAX_SEQ;
 		// SYNACK message (handshake part II)
 		Packet* ack = new Packet(server_seqnum, p->getSequenceNumber()+1, 1, 1, 0);
@@ -158,11 +162,12 @@ int main(int argc, char** argv){
 		bool timeout_occurs = false;
 
 		// Save next expected sequence number
-		int next_expected = p->getSequenceNumber()+1;
+		unsigned short next_expected = (p->getSequenceNumber()+1) % MAX_SEQ;
 
 		// Set up cache vector for unexpected packets
-		std::vector<Packet*> packet_cache;
-		
+		//std::vector<Packet*> packet_cache;
+		std::unordered_map<unsigned short, Packet*> pcache;
+		bool finished = false;
 		// Listen for next packets
 		while(1) {
 			// Listen for next packet
@@ -177,35 +182,31 @@ int main(int argc, char** argv){
 			if (next_data->getSequenceNumber() == next_expected) {
 				// Write next data to file
 				outfile.write((char*)next_data->getData(), next_data->getPayloadSize());
-				next_expected = next_data->getSequenceNumber()+next_data->getPayloadSize();
-
-				// Check if there are other packets to write to file
-				if (packet_cache.size() > 0) {
-					std::vector<Packet*>::iterator it = packet_cache.begin();
-					while(it != packet_cache.end()) {
-						if ((*it)->getSequenceNumber() == next_expected) {
-							outfile.write((char*)(*it)->getData(), (*it)->getPayloadSize());
-							next_expected = (*it)->getSequenceNumber()+(*it)->getPayloadSize();
-							it = packet_cache.erase(it);
-						} else {
-							break;
-						}
+				next_expected = (next_data->getSequenceNumber()+next_data->getPayloadSize())%MAX_SEQ;
+				server_seqnum = (server_seqnum + next_data->getPayloadSize())%MAX_SEQ;
+				std::unordered_map<unsigned short, Packet*>::iterator it;
+				while(pcache.end() != (it = pcache.find(next_expected))){
+					outfile.write((char*)it->second->getData(), it->second->getPayloadSize());
+					next_expected = (next_expected + it->second->getPayloadSize()) % MAX_SEQ;
+					server_seqnum = (server_seqnum + next_data->getPayloadSize())%MAX_SEQ;
+					if(it->second->FINbit()){
+						finished = true;
 					}
-				} else {
-					next_expected = next_data->getSequenceNumber()+next_data->getPayloadSize();
+					delete it->second;
+					pcache.erase(it);
 				}
-			} else if (next_data->getSequenceNumber() > next_expected) {
+			} else {
 				// If packet is not the right one, cache this packet until later
-				insertion_sort(packet_cache, next_data);
+				pcache.insert(std::pair<unsigned short, Packet*>(next_data->getSequenceNumber(), next_data));
 			}
 			
 			// Check for closed connection
-			if (next_data->FINbit())
+			if (next_data->FINbit() || finished)
 				break;
 			
 			// Send ack to client
 			Packet* ackn = new Packet(server_seqnum, next_expected, 1, 0, 0);
-			ackn->printSend(0, 0, false);
+			ackn->printSend(0, 0);
 			if(ackn->sendPacket(socketfd) == -1){
 				exit(2);
 			}

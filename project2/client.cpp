@@ -28,6 +28,7 @@
 #include "packet.hpp"
 
 #define MAX_CWND 10240
+#define TIMEOUT 50000000
 
 std::mutex mtx_outgoingQueue;
 std::mutex mtx_ackReceivedQueue;
@@ -68,7 +69,7 @@ void* TransmitPackets(void* data){
             mtx_outgoingQueue.unlock();
         }else{
             mtx_outgoingQueue.unlock();
-            usleep(100);
+            usleep(10);
         }
     }
     return 0;
@@ -79,16 +80,22 @@ void* ReceiveAcks(void* data){
     int fd = ((pthread_packet*)data)->fd;
     while(1){
         Packet* p = new Packet(fd);
+        if(p->timeoutHit()){
+            delete p;
+            continue;
+        }
         mtx_printlock.lock();
-        p->printRecv(cwnd, ssthresh);
-        mtx_printlock.unlock();
         if(p->FINbit()){
+            p->printRecv(0, 0);
+            mtx_printlock.unlock();
             break;
         }
+        p->printRecv(cwnd, ssthresh);
+        mtx_printlock.unlock();
         mtx_ackReceivedQueue.lock();
         queue->push(p);
         mtx_ackReceivedQueue.unlock();
-        usleep(100);
+        usleep(10);
     }
     return 0;
 }
@@ -100,8 +107,8 @@ void* RetransmissionHandle(void* data){
     int counter = 0;
     while(!finished_transmission){
         // Await to process more ACKs
-        usleep(200);
-        counter += 200;
+        usleep(100);
+        counter += 100;
         // Go through the received queue and try to match with sent packets
         mtx_ackReceivedQueue.lock();
         bool ack_received = false;
@@ -142,12 +149,17 @@ void* RetransmissionHandle(void* data){
                 cwnd = MAX_CWND;
             }
             mtx_inflight.unlock();
-        }else if(counter> 500000){
+        }else if(counter > TIMEOUT){
             mtx_outgoingQueue.lock();
             mtx_inflight.lock();
             for(auto it = inFlight->begin(); it != inFlight->end(); it++){
                 outgoingQueue->push(it->second);
             }
+            
+            // Packet Loss Event
+            ssthresh = std::max(cwnd/2, 512*2);
+            cwnd = 512;
+            
             mtx_outgoingQueue.unlock();
             mtx_inflight.unlock();
             counter = 0;
@@ -354,7 +366,9 @@ int main(int argc, char** argv){
     pthread_join(send_thread, 0);
     
     finpacket->sendPacket(socketfd);
-    finpacket->printSend(cwnd, ssthresh);
+    mtx_printlock.lock();
+    finpacket->printSend(0, 0);
+    mtx_printlock.unlock();
     pthread_join(receive_thread, 0);
 
     close(fd);
