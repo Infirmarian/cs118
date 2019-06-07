@@ -28,13 +28,14 @@
 #include "packet.hpp"
 
 #define MAX_CWND 10240
-#define TIMEOUT 50000000
+#define TIMEOUT 50000
 
 std::mutex mtx_outgoingQueue;
 std::mutex mtx_ackReceivedQueue;
 std::mutex mtx_inflight;
 std::mutex mtx_printlock;
 bool finished_transmission = false;
+unsigned short ackNumber = -1;
 
 struct pthread_packet{
     std::queue<Packet*>* queue;
@@ -113,9 +114,11 @@ void* RetransmissionHandle(void* data){
         mtx_ackReceivedQueue.lock();
         bool ack_received = false;
         std::unordered_set<unsigned short> ackedPacketNumbers;
+        std::unordered_set<unsigned short> highestAcks;
         while(!incomingAcks->empty()){
             Packet* front = incomingAcks->front();
             ackedPacketNumbers.insert(front->getAckNumber());
+            highestAcks.insert(front->getSequenceNumber());
             delete front;
             incomingAcks->pop();
             ack_received = true;
@@ -126,6 +129,13 @@ void* RetransmissionHandle(void* data){
         if(ack_received){
             counter = 0;
             int acks_gotten = 0;
+            // Generate the highest ACK so-far received
+            unsigned short curr_ack = ackNumber;
+            for(unsigned short i = curr_ack; i != curr_ack - 512; i = (i + 512)%MAX_SEQ){
+                if(highestAcks.find(i) != highestAcks.end()){
+                    ackNumber = i;
+                }
+            }
             mtx_inflight.lock();
             for(auto it = ackedPacketNumbers.begin(); it != ackedPacketNumbers.end(); it++){
                 unsigned short i = *it;
@@ -333,7 +343,7 @@ int main(int argc, char** argv){
     }
     
     // Continue data transmission
-    unsigned short ackNum = ack->getSequenceNumber();
+    ackNumber = ack->getSequenceNumber();
     sequence_number = ack->getAckNumber();
     bool finished_reading = false;
     while (1) {
@@ -341,7 +351,7 @@ int main(int argc, char** argv){
         int inFlightCount = 512 * (int)inFlight->size();
         mtx_inflight.unlock();
         for(; inFlightCount<cwnd; inFlightCount += 512 ){
-            Packet* p = new Packet(sequence_number, ackNum, 0,0,0);
+            Packet* p = new Packet(sequence_number, ackNumber, 0,0,0);
             int incount = p->loadData(fd);
             queue_packet(p, to_send, inFlight);
             // Done reading in the file
@@ -349,7 +359,6 @@ int main(int argc, char** argv){
                 finished_reading = true;
                 break;
             }
-            ackNum = (ackNum + 512) % MAX_SEQ;
             sequence_number = (sequence_number + 512) % MAX_SEQ;
         }
         if(finished_reading){
