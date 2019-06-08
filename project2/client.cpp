@@ -35,9 +35,11 @@ std::mutex mtx_ackReceivedQueue;
 std::mutex mtx_inflight;
 std::mutex mtx_printlock;
 bool finished_transmission = false;
+bool all_acked = false;
 unsigned short ackNumber = -1;
 int socketfd;
 int fd;
+int last_expected_ack = MAX_SEQ * 2;
 
 struct pthread_packet{
     std::queue<Packet*>* queue;
@@ -83,14 +85,19 @@ void* TransmitPackets(void* data){
 void* ReceiveAcks(void* data){
     std::queue<Packet*>* queue = ((pthread_packet*)data)->queue;
     int fd = ((pthread_packet*)data)->fd;
+    bool fin = false;
     while(1){
-        Packet* p = new Packet(fd);
+        if (finished_transmission)
+            fin = true;
+        Packet* p = new Packet(fd, fin);
         if(p->timeoutHit()){
             delete p;
             close(socketfd);
             close(fd);
             _exit(5);
         }
+        if(p->getAckNumber() == last_expected_ack)
+            all_acked = true;
         mtx_printlock.lock();
         if(p->FINbit()){
             p->printRecv(0, 0);
@@ -369,6 +376,7 @@ int main(int argc, char** argv){
             // Done reading in the file
             if(incount < 512){
                 finished_reading = true;
+                last_expected_ack = p->getSequenceNumber()+p->getPayloadSize();
                 break;
             }
             sequence_number = (sequence_number + 512) % MAX_SEQ;
@@ -388,6 +396,9 @@ int main(int argc, char** argv){
         usleep(10);
     }
 
+    while(!all_acked) {
+        continue;
+    }
     // Teardown
     Packet* finpacket = new Packet(0,0,0,0,1);
     finished_transmission = true;
