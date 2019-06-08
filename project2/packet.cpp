@@ -62,7 +62,6 @@ Packet::Packet(byte* data, unsigned short length){
     }
     if(length > DATA_LENGTH + HEAD_LENGTH){
         std::cerr<<"Packet is WAY too long!"<<std::endl;
-        assert(false);
     }
     memcpy(m_header, data, HEAD_LENGTH);
     memcpy(m_data, data + HEAD_LENGTH, length - HEAD_LENGTH);
@@ -113,7 +112,6 @@ Packet::Packet(int socket, struct sockaddr* addr, socklen_t* len){
         m_timeout = true;
     }else if(rec_check < 0){
         std::cerr<<"Error with reading from socket: "<<strerror(errno)<<std::endl;
-        assert(false);
     }else{
         m_timeout = false;
     }

@@ -5,7 +5,7 @@ FLAGS=-Wall -Wextra -std=c++11 -g
 build: client server
 
 client: client.o packet.o
-	$(CC) $(FLAGS) client.o packet.o -o client
+	$(CC) $(FLAGS) client.o packet.o -pthread -o client
 
 server: server.o packet.o
 	$(CC) $(FLAGS) server.o packet.o -o server

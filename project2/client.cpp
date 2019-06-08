@@ -24,6 +24,8 @@
 #include <queue>
 #include <mutex>
 #include <vector>
+#include <string>
+#include <cstring>
 
 #include "packet.hpp"
 
@@ -64,7 +66,7 @@ void* TransmitPackets(void* data){
         if(!queue->empty()){
             Packet* p = queue->front();
             if(p->sendPacket(fd) == -1){
-                std::cerr<<"Unable to transmit packet: "<<strerror(errno)<<std::endl;
+                std::cerr<<"Unable to transmit packet: "<<std::strerror(errno)<<std::endl;
                 exit(2);
             }
             mtx_printlock.lock();
@@ -253,15 +255,15 @@ int main(int argc, char** argv){
 
     // Set the server address
     struct sockaddr_in serveraddr;
-    memset(&serveraddr, 0, sizeof(serveraddr));
+    std::memset(&serveraddr, 0, sizeof(serveraddr));
 
     // Set all of the server information
     serveraddr.sin_family = AF_INET;
     serveraddr.sin_port = htons(port);
     
     // Set localhost IP number
-    if(strcmp(hostname, "localhost") == 0)
-        strcpy(hostname, "127.0.0.1");
+    if(std::strcmp(hostname, "localhost") == 0)
+        std::strcpy(hostname, "127.0.0.1");
 
     serveraddr.sin_addr.s_addr = inet_addr(hostname);
     
