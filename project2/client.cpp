@@ -388,17 +388,7 @@ int main(int argc, char** argv){
         }
         usleep(10);
     }
-    while(1){
-        mtx_inflight.lock();
-        if(inFlight->empty()){
-            mtx_inflight.unlock();
-            break;
-        }
-        mtx_inflight.unlock();
-        usleep(10);
-    }
-
-    while(!all_acked) {
+   while(!all_acked) {
         continue;
     }
     // Teardown
