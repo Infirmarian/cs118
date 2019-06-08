@@ -10,6 +10,9 @@ client: client.o packet.o
 server: server.o packet.o
 	$(CC) $(FLAGS) server.o packet.o -o server
 
+dist: server.cpp client.cpp packet.cpp packet.hpp report.pdf README Makefile
+	zip project2_104916969_104934015.zip server.cpp client.cpp packet.cpp packet.hpp report.pdf README Makefile
+
 client.o: client.cpp
 	$(CC) $(FLAGS) -pthread -c client.cpp
 server.o: server.cpp
@@ -23,3 +26,4 @@ clean:
 	$(RM) packet.o
 	$(RM) server
 	$(RM) client
+	$(RM) project2_104916969_104934015.zip
