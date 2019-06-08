@@ -73,11 +73,11 @@ void* TransmitPackets(void* data){
             //p->setDuplicate();
             queue->pop();
             mtx_outgoingQueue.unlock();
-            finished_og_transmission = finished_transmission;
         }else{
             mtx_outgoingQueue.unlock();
             usleep(10);
         }
+        finished_og_transmission = finished_transmission;
     }
     return 0;
 }
@@ -101,6 +101,9 @@ void* ReceiveAcks(void* data){
         mtx_printlock.lock();
         if(p->FINbit()){
             p->printRecv(0, 0);
+            Packet* p = new Packet(0,0,1,0,0);
+            p->sendPacket(socketfd);
+            delete p;
             mtx_printlock.unlock();
             break;
         }
@@ -396,20 +399,20 @@ int main(int argc, char** argv){
         usleep(10);
     }
 
-    while(!all_acked) {
-        continue;
-    }
     // Teardown
     Packet* finpacket = new Packet(0,0,0,0,1);
-    finished_transmission = true;
+     finished_transmission = true;
     // Join threads
     pthread_join(queue_cordination,0);
     pthread_join(send_thread, 0);
+
     
     finpacket->sendPacket(socketfd);
+    
     mtx_printlock.lock();
     finpacket->printSend(0, 0);
     mtx_printlock.unlock();
+    usleep(2000000);
     pthread_join(receive_thread, 0);
 
     close(fd);
