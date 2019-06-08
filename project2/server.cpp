@@ -164,7 +164,7 @@ int main(int argc, char** argv){
 				std::unordered_map<unsigned short, Packet*>::iterator it;
 				while(pcache.end() != (it = pcache.find(next_expected))){
 					outfile.write((char*)it->second->getData(), it->second->getPayloadSize());
-					next_expected = (it->second->getSequenceNumber() + it->second->getPayloadSize()) % MAX_SEQ;
+					next_expected = (next_expected + it->second->getPayloadSize()) % MAX_SEQ;
 					server_seqnum = (server_seqnum + 1) % MAX_SEQ;
 					if(it->second->FINbit()){
 						finished = true;
