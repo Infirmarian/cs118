@@ -68,7 +68,7 @@ void* TransmitPackets(void* data){
             mtx_printlock.lock();
             p->printSend(cwnd, ssthresh);
             mtx_printlock.unlock();
-            p->setDuplicate();
+            //p->setDuplicate();
             queue->pop();
             mtx_outgoingQueue.unlock();
             finished_og_transmission = finished_transmission;
@@ -304,7 +304,6 @@ int main(int argc, char** argv){
     }
     clearFromInFlight(inFlight, syn);
     
-    ack->printRecv(cwnd, ssthresh);
     
     // Check if the server accepted or rejected the connection
     if(!ack->SYNbit() || !ack->getAckNumber() || !ack->ACKbit()){
@@ -343,7 +342,6 @@ int main(int argc, char** argv){
             break;
     }
     clearFromInFlight(inFlight, initial_data);
-    ack->printRecv(cwnd, ssthresh);
 
     // Start joining the queue together
     pthread_create(&queue_cordination, 0, RetransmissionHandle, qcp);
