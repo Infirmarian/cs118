@@ -87,7 +87,7 @@ void* ReceiveAcks(void* data){
             delete p;
             close(socketfd);
             close(fd);
-            exit(5);
+            _exit(5);
         }
         mtx_printlock.lock();
         if(p->FINbit()){
@@ -135,7 +135,7 @@ void* RetransmissionHandle(void* data){
             int acks_gotten = 0;
             // Generate the highest ACK so-far received
             unsigned short curr_ack = ackNumber;
-            for(unsigned short i = curr_ack; i != curr_ack - 512; i = (i + 512)%MAX_SEQ){
+            for(unsigned short i = curr_ack; i != curr_ack-1; i = (i + 1)%MAX_SEQ){
                 if(highestAcks.find(i) != highestAcks.end()){
                     ackNumber = i;
                 }
@@ -145,10 +145,10 @@ void* RetransmissionHandle(void* data){
                 unsigned short i = *it;
                 std::unordered_map<unsigned short, Packet*>::iterator foundVal;
                 while(inFlight->end() != (foundVal = inFlight->find(i))){
+                    i = (i - foundVal->second->getPayloadSize())%MAX_SEQ;
                     delete foundVal->second;
                     inFlight->erase(foundVal);
-                    i -= 512;
-                    acks_gotten ++;
+                    acks_gotten++;
                 }
             }
             // LOGIC FOR INCREASING THE WINDOW SIZE!
