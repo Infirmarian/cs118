@@ -17,6 +17,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <unordered_map>
+#include <cassert>
 
 #include "packet.hpp"
 
@@ -36,6 +37,7 @@ void signal_exit(int signum){
 	}
 	_exit(0);
 }
+
 
 int main(int argc, char** argv){
     // Make sure arguments are valid
@@ -72,7 +74,7 @@ int main(int argc, char** argv){
 	int connection_number = 1;
 	socklen_t addr_len;
 	byte buf[HEAD_LENGTH + DATA_LENGTH];
-
+	
 	// Continually listen and process new connections on the socket
 	while(1){
 		// Create the incoming socket file descriptor
@@ -148,24 +150,27 @@ int main(int argc, char** argv){
 		// Listen for next packets
 		while(1) {
 			// Listen for next packet
-			Packet* next_data = new Packet(socketfd);
+			Packet* next_data = new Packet(socketfd, false);
 			if (next_data->timeoutHit()) {
 				timeout_occurs = true;
 				break;
     		}
+			//std::cout<<next_expected<<" ";
 			next_data->printRecv(0, 0);
-
+			bool wrote_to_disk = false;
 			// Write data to file
 			if (next_data->getSequenceNumber() == next_expected) {
 				// Write next data to file
 				outfile.write((char*)next_data->getData(), next_data->getPayloadSize());
+				wrote_to_disk = true;
+
 				next_expected = (next_data->getSequenceNumber()+next_data->getPayloadSize())%MAX_SEQ;
-				server_seqnum = (server_seqnum + next_data->getPayloadSize())%MAX_SEQ;
+				server_seqnum = (server_seqnum + 1)%MAX_SEQ;
 				std::unordered_map<unsigned short, Packet*>::iterator it;
 				while(pcache.end() != (it = pcache.find(next_expected))){
-					outfile.write((char*)it->second->getData(), it->second->getPayloadSize());
+					outfile.write((char*)(it->second->getData()), it->second->getPayloadSize());
 					next_expected = (next_expected + it->second->getPayloadSize()) % MAX_SEQ;
-					server_seqnum = (server_seqnum + next_data->getPayloadSize())%MAX_SEQ;
+					server_seqnum = (server_seqnum + 1) % MAX_SEQ;
 					if(it->second->FINbit()){
 						finished = true;
 					}
@@ -173,8 +178,22 @@ int main(int argc, char** argv){
 					pcache.erase(it);
 				}
 			} else {
-				// If packet is not the right one, cache this packet until later
-				pcache.insert(std::pair<unsigned short, Packet*>(next_data->getSequenceNumber(), next_data));
+				unsigned short lower_bound = (next_expected + 5120)%MAX_SEQ;
+				bool dropped = false;
+				if(lower_bound > next_expected){
+					if(next_data->getSequenceNumber() < next_expected || next_data->getSequenceNumber() > lower_bound )
+						dropped = true; //fuck this packet
+				}else{
+					if(next_data->getSequenceNumber() < next_expected && next_data->getSequenceNumber() > lower_bound )
+						dropped = true; // this one too
+				}
+				if(!dropped){
+					// If packet is not the right one, cache this packet until later
+					pcache.insert(std::pair<unsigned short, Packet*>(next_data->getSequenceNumber(), next_data));
+					//std::cout<<"ADDED "<<next_data->getSequenceNumber()<<" TO PCACHE"<<std::endl;
+				}else{
+					//std::cout<<"DROPPED "<<next_data->getSequenceNumber()<<std::endl;
+				}
 			}
 			
 			// Check for closed connection
@@ -183,6 +202,8 @@ int main(int argc, char** argv){
 			
 			// Send ack to client
 			Packet* ackn = new Packet(server_seqnum, next_expected, 1, 0, 0);
+			if(!wrote_to_disk)
+				ackn->setDuplicate();
 			ackn->printSend(0, 0);
 			if(ackn->sendPacket(socketfd) == -1){
 				exit(2);
