@@ -35,8 +35,11 @@ std::mutex mtx_ackReceivedQueue;
 std::mutex mtx_inflight;
 std::mutex mtx_printlock;
 bool finished_transmission = false;
+bool all_acked = false;
+unsigned short ackNumber = -1;
 int socketfd;
 int fd;
+int last_expected_ack = MAX_SEQ * 2;
 
 struct pthread_packet{
     std::queue<Packet*>* queue;
@@ -89,8 +92,10 @@ void* ReceiveAcks(void* data){
             delete p;
             close(socketfd);
             close(fd);
-            exit(5);
+            _exit(5);
         }
+        if(p->getAckNumber() == last_expected_ack)
+            all_acked = true;
         mtx_printlock.lock();
         if(p->FINbit()){
             p->printRecv(0, 0);
@@ -120,9 +125,11 @@ void* RetransmissionHandle(void* data){
         mtx_ackReceivedQueue.lock();
         bool ack_received = false;
         std::unordered_set<unsigned short> ackedPacketNumbers;
+        std::unordered_set<unsigned short> highestAcks;
         while(!incomingAcks->empty()){
             Packet* front = incomingAcks->front();
             ackedPacketNumbers.insert(front->getAckNumber());
+            highestAcks.insert(front->getSequenceNumber());
             delete front;
             incomingAcks->pop();
             ack_received = true;
@@ -133,15 +140,22 @@ void* RetransmissionHandle(void* data){
         if(ack_received){
             counter = 0;
             int acks_gotten = 0;
+            // Generate the highest ACK so-far received
+            unsigned short curr_ack = ackNumber;
+            for(unsigned short i = curr_ack; i != curr_ack-1; i = (i + 1)%MAX_SEQ){
+                if(highestAcks.find(i) != highestAcks.end()){
+                    ackNumber = i;
+                }
+            }
             mtx_inflight.lock();
             for(auto it = ackedPacketNumbers.begin(); it != ackedPacketNumbers.end(); it++){
                 unsigned short i = *it;
                 std::unordered_map<unsigned short, Packet*>::iterator foundVal;
                 while(inFlight->end() != (foundVal = inFlight->find(i))){
+                    i = (i - foundVal->second->getPayloadSize())%MAX_SEQ;
                     delete foundVal->second;
                     inFlight->erase(foundVal);
-                    i -= 512;
-                    acks_gotten ++;
+                    acks_gotten++;
                 }
             }
             // LOGIC FOR INCREASING THE WINDOW SIZE!
@@ -340,7 +354,7 @@ int main(int argc, char** argv){
     }
     
     // Continue data transmission
-    unsigned short ackNum = ack->getSequenceNumber();
+    ackNumber = ack->getSequenceNumber();
     sequence_number = ack->getAckNumber();
     bool finished_reading = false;
     while (1) {
@@ -348,15 +362,15 @@ int main(int argc, char** argv){
         int inFlightCount = 512 * (int)inFlight->size();
         mtx_inflight.unlock();
         for(; inFlightCount<cwnd; inFlightCount += 512 ){
-            Packet* p = new Packet(sequence_number, ackNum, 0,0,0);
+            Packet* p = new Packet(sequence_number, ackNumber, 0,0,0);
             int incount = p->loadData(fd);
             queue_packet(p, to_send, inFlight);
             // Done reading in the file
             if(incount < 512){
                 finished_reading = true;
+                last_expected_ack = p->getSequenceNumber()+p->getPayloadSize();
                 break;
             }
-            ackNum = (ackNum + 512) % MAX_SEQ;
             sequence_number = (sequence_number + 512) % MAX_SEQ;
         }
         if(finished_reading){
@@ -365,6 +379,9 @@ int main(int argc, char** argv){
         usleep(10);
     }
 
+    while(!all_acked) {
+        continue;
+    }
     // Teardown
     Packet* finpacket = new Packet(0,0,0,0,1);
     finished_transmission = true;
